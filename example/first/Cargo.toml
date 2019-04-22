@@ -1,0 +1,9 @@
+[package]
+name = "first"
+version = "0.1.0"
+authors = ["Jun Kimura <junkxdev@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+hmc = { git = "https://github.com/bluele/hypermint", branch = "develop" }
+hmemu = { path = "../.." }
