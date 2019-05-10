@@ -30,9 +30,14 @@ pub fn main() {
 mod tests {
     #[test]
     fn it_works() {
+        hmemu::init_process();
+        hmemu::init_push_arg("1");
+        hmemu::init_push_arg("2");
+        hmemu::init_done();
+
         assert_eq!(2 + 2, 4);
         let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
         let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
-        assert_eq!(4, x + y);
+        assert_eq!(3, x + y);
     }
 }

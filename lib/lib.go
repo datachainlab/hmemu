@@ -69,8 +69,8 @@ func __get_sender(ptr uintptr, len C.int) int {
 }
 
 //export __get_arg
-func __get_arg(idx C.int, ptr uintptr, len C.int) int {
-	return contract.GetArg(globalProcess, int(idx), NewWriter(ptr, int(len)))
+func __get_arg(idx, offset C.int, ptr uintptr, len C.int) int {
+	return contract.GetArg(globalProcess, int(idx), int(offset), NewWriter(ptr, int(len)))
 }
 
 //export __log
@@ -79,10 +79,10 @@ func __log(ptr uintptr, len C.int) int {
 }
 
 //export __read_state
-func __read_state(keyPtr uintptr, keyLen C.int, bufPtr uintptr, bufLen C.int) int {
+func __read_state(keyPtr uintptr, keyLen, offset C.int, bufPtr uintptr, bufLen C.int) int {
 	key := NewReader(keyPtr, int(keyLen))
 	buf := NewWriter(bufPtr, int(bufLen))
-	return contract.ReadState(globalProcess, key, buf)
+	return contract.ReadState(globalProcess, key, int(offset), buf)
 }
 
 //export __write_state

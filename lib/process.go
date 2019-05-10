@@ -46,7 +46,15 @@ func (p *Process) Args() contract.Args {
 	return p.args
 }
 
-func (p *Process) Call(addr common.Address, entry []byte, args contract.Args) ([]byte, error) {
+func (p *Process) Call(addr common.Address, entry []byte, args contract.Args) (int, error) {
+	panic("not implemented error")
+}
+
+func (p *Process) Read(id int) ([]byte, error) {
+	panic("not implemented error")
+}
+
+func (p *Process) ValueTable() contract.ValueTable {
 	panic("not implemented error")
 }
 
@@ -79,6 +87,10 @@ func (val *value) Write(v []byte) int {
 
 func (val *value) Read() []byte {
 	return C.GoBytes(unsafe.Pointer(val.pos), C.int(val.len))
+}
+
+func (val *value) Len() int {
+	return val.len
 }
 
 func NewReader(pos uintptr, len int) contract.Reader {
