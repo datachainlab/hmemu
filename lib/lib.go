@@ -26,6 +26,16 @@ func __init_process() int {
 	return 0
 }
 
+//export __destroy_process
+func __destroy_process() int {
+	if !isInitDone {
+		return -1
+	}
+	globalProcess = nil
+	isInitDone = false
+	return 0
+}
+
 //export __init_sender
 func __init_sender(ptr uintptr, len C.int) int {
 	if isInitDone {
