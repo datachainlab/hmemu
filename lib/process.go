@@ -2,6 +2,9 @@ package main
 
 import "C"
 import (
+	"errors"
+	"fmt"
+	"sync"
 	"unsafe"
 
 	"github.com/bluele/hypermint/pkg/abci/store"
@@ -18,8 +21,61 @@ var (
 	_             contract.Process = new(Process)
 )
 
+type ProcessManager struct {
+	mu   sync.RWMutex
+	cpid int
+	pss  []*Process
+}
+
+func (pm *ProcessManager) GetMutex() {
+	pm.mu.Lock()
+}
+
+func (pm *ProcessManager) ReleaseMutex() {
+	pm.mu.Unlock()
+}
+
+func (pm *ProcessManager) CreateProcess() (int, error) {
+	pid := len(pm.pss)
+	ps, err := NewProcess()
+	if err != nil {
+		return -1, err
+	}
+	pm.pss = append(pm.pss, ps)
+	pm.cpid = pid
+	return pid, nil
+}
+
+func (pm *ProcessManager) DestroyProcess(pid int) error {
+	if len(pm.pss) <= pid {
+		return fmt.Errorf("not found pid %v", pid)
+	}
+	pm.pss[pid] = nil
+	return nil
+}
+
+func (pm *ProcessManager) CurrentProcess() (*Process, error) {
+	if len(pm.pss) <= pm.cpid {
+		return nil, fmt.Errorf("not found pid %v", pm.cpid)
+	}
+	ps := pm.pss[pm.cpid]
+	if ps == nil {
+		return nil, errors.New("deleted process")
+	}
+	return ps, nil
+}
+
+func (pm *ProcessManager) CurrentProcessID() int {
+	return pm.cpid
+}
+
+func (pm *ProcessManager) SwitchProcess(pid int) {
+	pm.cpid = pid
+}
+
 type Process struct {
-	db *db.VersionedDB
+	initialized bool
+	db          *db.VersionedDB
 
 	sender common.Address
 	args   contract.Args
