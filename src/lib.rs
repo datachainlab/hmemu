@@ -148,11 +148,13 @@ mod tests {
 
     #[test]
     fn initialize_test() {
+        get_mutex().unwrap();
         init_process().unwrap();
         init_push_arg("key1").unwrap();
         init_done().unwrap();
 
         init_push_arg("key2").expect_err("expect error");
+        release_mutex().unwrap();
     }
 
     #[test]

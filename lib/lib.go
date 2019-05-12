@@ -45,6 +45,9 @@ func __init_sender(ptr uintptr, len C.int) int {
 		log.Println(err)
 		return -1
 	}
+	if ps.initialized {
+		return -1
+	}
 	copy(ps.sender[:], NewReader(ptr, int(len)).Read())
 	return 0
 }
@@ -56,6 +59,9 @@ func __init_push_arg(ptr uintptr, len C.int) int {
 		log.Println(err)
 		return -1
 	}
+	if ps.initialized {
+		return -1
+	}
 	ps.args.PushBytes(NewReader(ptr, int(len)).Read())
 	return 0
 }
@@ -65,6 +71,9 @@ func __init_done() int {
 	ps, err := processManager.CurrentProcess()
 	if err != nil {
 		log.Println(err)
+		return -1
+	}
+	if ps.initialized {
 		return -1
 	}
 	ps.initialized = true
