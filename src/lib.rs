@@ -9,9 +9,8 @@ extern "C" {
     fn __init_done() -> i32;
     fn __commit_state() -> i32;
 
-    fn __get_mutex() -> i32;
+    fn __get_mutex(pid: i32) -> i32;
     fn __release_mutex() -> i32;
-    fn __switch_process(pid: i32) -> i32;
 }
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -21,7 +20,7 @@ thread_local!(static PID: RefCell<i32> = RefCell::new(-1));
 // get_mutex gets mutex
 fn get_mutex() -> Result<()> {
     unsafe {
-        match __get_mutex() {
+        match __get_mutex(get_pid()) {
             ret if ret < 0 => Err(format!("__get_mutex: error({})", ret)),
             _ => Ok(()),
         }
@@ -43,9 +42,12 @@ fn get_pid() -> i32 {
     PID.with(|p| *p.borrow())
 }
 
-// This function gets a mutex inside.
 // init_process create a new process.
 pub fn init_process() -> Result<i32> {
+    match get_pid() {
+        -1 => {}
+        _ => return Err("process already exists".to_string()),
+    }
     unsafe {
         match __init_process() {
             ret if ret < 0 => Err(format!("__init_process: error({})", ret)),
@@ -63,7 +65,7 @@ pub fn init_sender(addr: &[u8]) -> Result<()> {
     unsafe {
         match __init_sender(addr.as_ptr(), addr.len()) {
             ret if ret < 0 => Err(format!("__init_sender: error({})", ret)),
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 }
@@ -74,7 +76,7 @@ pub fn init_push_arg<T: Into<String>>(s: T) -> Result<()> {
     unsafe {
         match __init_push_arg(b.as_ptr(), b.len()) {
             ret if ret < 0 => Err(format!("__init_push_arg: error({})", ret)),
-            _ => Ok(())
+            _ => Ok(()),
         }
     }
 }
@@ -109,35 +111,30 @@ pub fn destroy_process() -> Result<()> {
     }
 }
 
-pub fn switch_process(pid: i32) -> Result<()> {
-    unsafe {
-        match __switch_process(pid) {
-            ret if ret < 0 => Err(format!("__switch_process: error({})", ret)),
-            _ => PID.with(|p| {
-                *p.borrow_mut() = pid;
-                Ok(())
-            }),
-        }
-    }
-}
-
-pub fn exec_process<F: FnOnce() -> Result<()>>(cb: F) -> Result<()> {
+pub fn exec_process<T, F: FnOnce() -> Result<T>>(cb: F) -> Result<T> {
     exec_process_with_arguments(Vec::<String>::new(), cb)
 }
 
-pub fn exec_process_with_arguments<F: FnOnce() -> Result<()>, T: Into<String>>(
-    args: Vec<T>,
+pub fn exec_process_with_arguments<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
+    args: Vec<T2>,
     cb: F,
-) -> Result<()> {
+) -> Result<T1> {
+    exec_function(|| {
+        init_process()?;
+        for arg in args.into_iter() {
+            let s = arg.into();
+            init_push_arg(s.as_str())?;
+        }
+        init_done()?;
+        let res = cb();
+        destroy_process()?;
+        res
+    })
+}
+
+pub fn exec_function<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T> {
     get_mutex()?;
-    init_process()?;
-    for arg in args.into_iter() {
-        let s = arg.into();
-        init_push_arg(s.as_str())?;
-    }
-    init_done()?;
-    let res = cb();
-    destroy_process()?;
+    let res = f();
     release_mutex()?;
     res
 }
@@ -148,13 +145,16 @@ mod tests {
 
     #[test]
     fn initialize_test() {
-        get_mutex().unwrap();
-        init_process().unwrap();
-        init_push_arg("key1").unwrap();
-        init_done().unwrap();
+        exec_function(|| {
+            init_process().unwrap();
+            init_push_arg("key1").unwrap();
+            init_done().unwrap();
 
-        init_push_arg("key2").expect_err("expect error");
-        release_mutex().unwrap();
+            init_push_arg("key2").expect_err("expect error");
+            destroy_process().unwrap();
+            Ok(())
+        })
+        .unwrap();
     }
 
     #[test]
@@ -187,24 +187,31 @@ mod tests {
 
     #[test]
     fn process_manager_test() {
-        get_mutex().unwrap();
-
-        let pid1 = init_process().unwrap();
-        assert_eq!(pid1, get_pid());
-        init_push_arg("key1").unwrap();
-
-        let pid2 = init_process().unwrap();
-        assert_eq!(pid2, get_pid());
-        init_push_arg("key2").unwrap();
-
-        switch_process(pid1).unwrap();
-        assert_eq!(pid1, get_pid());
-        assert_eq!("key1", hmc::get_arg_str(0).unwrap().as_str());
-
-        switch_process(pid2).unwrap();
-        assert_eq!(pid2, get_pid());
-        assert_eq!("key2", hmc::get_arg_str(0).unwrap().as_str());
-
-        release_mutex().unwrap();
+        let pid1 = exec_function(|| {
+            let pid = init_process().unwrap();
+            assert_eq!(pid, get_pid());
+            init_push_arg("key1").unwrap();
+            Ok(pid)
+        })
+        .unwrap();
+        let th = std::thread::spawn(move || {
+            exec_function(|| {
+                let pid = init_process().unwrap();
+                assert_eq!(pid, get_pid());
+                assert_ne!(pid, pid1);
+                init_push_arg("key2").unwrap();
+                init_done().unwrap();
+                assert_eq!("key2", hmc::get_arg_str(0).unwrap().as_str());
+                Ok(())
+            })
+            .unwrap();
+        });
+        th.join().unwrap();
+        exec_function(|| {
+            assert_eq!(pid1, get_pid());
+            assert_eq!("key1", hmc::get_arg_str(0).unwrap().as_str());
+            Ok(())
+        })
+        .unwrap();
     }
 }

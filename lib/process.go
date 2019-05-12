@@ -22,13 +22,16 @@ var (
 )
 
 type ProcessManager struct {
-	mu   sync.RWMutex
+	mu   sync.Mutex
 	cpid int
 	pss  []*Process
 }
 
-func (pm *ProcessManager) GetMutex() {
+func (pm *ProcessManager) GetMutex(pid int) {
 	pm.mu.Lock()
+	if pid >= 0 {
+		pm.cpid = pid
+	}
 }
 
 func (pm *ProcessManager) ReleaseMutex() {
@@ -67,10 +70,6 @@ func (pm *ProcessManager) CurrentProcess() (*Process, error) {
 
 func (pm *ProcessManager) CurrentProcessID() int {
 	return pm.cpid
-}
-
-func (pm *ProcessManager) SwitchProcess(pid int) {
-	pm.cpid = pid
 }
 
 type Process struct {

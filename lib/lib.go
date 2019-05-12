@@ -32,11 +32,6 @@ func __destroy_process() int {
 	return 0
 }
 
-//export __switch_process
-func __switch_process(pid C.int) int {
-	processManager.SwitchProcess(int(pid))
-	return 0
-}
 
 //export __init_sender
 func __init_sender(ptr uintptr, len C.int) int {
@@ -149,8 +144,8 @@ func __write_state(keyPtr uintptr, keyLen C.int, valPtr uintptr, valLen C.int) i
 }
 
 //export __get_mutex
-func __get_mutex() int {
-	processManager.GetMutex()
+func __get_mutex(pid int) int {
+	processManager.GetMutex(pid)
 	return 0
 }
 
