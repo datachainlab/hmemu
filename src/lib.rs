@@ -37,7 +37,6 @@ fn release_mutex() -> Result<()> {
     }
 }
 
-#[allow(dead_code)]
 fn get_pid() -> i32 {
     PID.with(|p| *p.borrow())
 }
