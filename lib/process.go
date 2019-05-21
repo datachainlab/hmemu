@@ -79,6 +79,7 @@ type Process struct {
 	sender common.Address
 	args   contract.Args
 	res    []byte
+	events []*contract.Event
 }
 
 func NewProcess() (*Process, error) {
@@ -123,6 +124,10 @@ func (p *Process) State() db.StateDB {
 
 func (p *Process) Logger() logger.Logger {
 	return defaultLogger
+}
+
+func (p *Process) EmitEvent(ev *contract.Event) {
+	p.events = append(p.events, ev)
 }
 
 type value struct {

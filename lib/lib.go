@@ -201,4 +201,23 @@ func __ecrecover_address(
 	)
 }
 
+//export __emit_event
+func __emit_event(
+	ev uintptr,
+	evLen C.int,
+	data uintptr,
+	dataLen C.int,
+) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	return contract.EmitEvent(
+		ps,
+		NewReader(ev, int(evLen)),
+		NewReader(data, int(dataLen)),
+	)
+}
+
 func main() {}
