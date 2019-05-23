@@ -11,6 +11,9 @@ extern "C" {
 
     fn __get_mutex(pid: i32) -> i32;
     fn __release_mutex() -> i32;
+
+    fn __get_return_value(offset: usize, value_buf_ptr: *mut u8, value_buf_len: usize) -> i32;
+    fn __get_event(name: *const u8, name_len: usize, idx: usize, offset: usize, value_buf_ptr: *mut u8, value_buf_len: usize) -> i32;
 }
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -96,6 +99,48 @@ pub fn commit_state() -> Result<()> {
             _ => Ok(()),
         }
     }
+}
+
+const BUF_SIZE: usize = 128;
+
+pub fn get_return_value() -> Result<Vec<u8>> {
+    let mut buf = [0u8; BUF_SIZE];
+    let mut offset = 0;
+    let mut val: Vec<u8> = Vec::new();
+    loop {
+        match unsafe { __get_return_value(offset, buf.as_mut_ptr(), buf.len()) } {
+            -1 => return Err("read_state: key not found".to_string()),
+            0 => break,
+            n => {
+                val.extend_from_slice(&buf[0..n as usize]);
+                if n < BUF_SIZE as i32 {
+                    break;
+                }
+                offset += n as usize;
+            }
+        }
+    }
+    Ok(val)
+}
+
+pub fn get_event(name: &str, idx: usize) -> Result<Vec<u8>> {
+    let mut buf = [0u8; BUF_SIZE];
+    let mut offset = 0;
+    let mut val: Vec<u8> = Vec::new();
+    loop {
+        match unsafe { __get_event(name.as_ptr(), name.len(), idx, offset, buf.as_mut_ptr(), buf.len()) } {
+            -1 => return Err("get_event: event not found".to_string()),
+            0 => break,
+            n => {
+                val.extend_from_slice(&buf[0..n as usize]);
+                if n < BUF_SIZE as i32 {
+                    break;
+                }
+                offset += n as usize;
+            }
+        }
+    }
+    Ok(val)
 }
 
 pub fn destroy_process() -> Result<()> {
