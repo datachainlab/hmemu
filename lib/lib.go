@@ -32,7 +32,6 @@ func __destroy_process() int {
 	return 0
 }
 
-
 //export __init_sender
 func __init_sender(ptr uintptr, len C.int) int {
 	ps, err := processManager.CurrentProcess()
@@ -89,6 +88,35 @@ func __commit_state() int {
 	return 0
 }
 
+//export __get_return_value
+func __get_return_value(offset C.int, ptr uintptr, len C.int) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	return contract.WriteBuf(ps, NewWriter(ptr, int(len)), int(offset), ps.res)
+}
+
+//export __get_event
+func __get_event(namePtr uintptr, nameLen C.int, idx C.int, offset C.int, bufPtr uintptr, bufLen C.int) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	evm := make(map[string][]*contract.Event)
+	for _, ev := range ps.events {
+		evm[string(ev.Name)] = append(evm[string(ev.Name)], ev)
+	}
+	name := string(NewReader(namePtr, int(nameLen)).Read())
+	evs := evm[name]
+	if len(evs) <= int(idx) {
+		return -1
+	}
+	return contract.WriteBuf(ps, NewWriter(bufPtr, int(bufLen)), int(offset), evs[int(idx)].Value)
+}
+
 //export __get_sender
 func __get_sender(ptr uintptr, len C.int) int {
 	ps, err := processManager.CurrentProcess()
@@ -107,6 +135,16 @@ func __get_arg(idx, offset C.int, ptr uintptr, len C.int) int {
 		return -1
 	}
 	return contract.GetArg(ps, int(idx), int(offset), NewWriter(ptr, int(len)))
+}
+
+//export __set_response
+func __set_response(ptr uintptr, len C.int) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	return contract.SetResponse(ps, NewReader(ptr, int(len)))
 }
 
 //export __log
@@ -198,6 +236,25 @@ func __ecrecover_address(
 		NewReader(r, int(rLen)),
 		NewReader(s, int(sLen)),
 		NewWriter(buf, int(bufLen)),
+	)
+}
+
+//export __emit_event
+func __emit_event(
+	ev uintptr,
+	evLen C.int,
+	data uintptr,
+	dataLen C.int,
+) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	return contract.EmitEvent(
+		ps,
+		NewReader(ev, int(evLen)),
+		NewReader(data, int(dataLen)),
 	)
 }
 
