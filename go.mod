@@ -6,7 +6,7 @@ replace github.com/go-interpreter/wagon v0.0.0 => github.com/perlin-network/wago
 
 require (
 	github.com/beorn7/perks v1.0.0 // indirect
-	github.com/bluele/hypermint v0.2.0
+	github.com/bluele/hypermint v0.2.1
 	github.com/ethereum/go-ethereum v1.8.21
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
