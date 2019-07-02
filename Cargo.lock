@@ -2,15 +2,15 @@
 # It is not intended for manual editing.
 [[package]]
 name = "hmc"
-version = "0.1.0"
-source = "git+https://github.com/bluele/hypermint?branch=develop#4047a1203868cb53ee88b73edf4732f63badcec4"
+version = "0.1.1"
+source = "git+https://github.com/bluele/hypermint?tag=v0.3.0#baa8e077e47e3c3a11dd908684d59fe2e211e9bc"
 
 [[package]]
 name = "hmemu"
 version = "0.1.0"
 dependencies = [
- "hmc 0.1.0 (git+https://github.com/bluele/hypermint?branch=develop)",
+ "hmc 0.1.1 (git+https://github.com/bluele/hypermint?tag=v0.3.0)",
 ]
 
 [metadata]
-"checksum hmc 0.1.0 (git+https://github.com/bluele/hypermint?branch=develop)" = "<none>"
+"checksum hmc 0.1.1 (git+https://github.com/bluele/hypermint?tag=v0.3.0)" = "<none>"

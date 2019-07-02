@@ -6,5 +6,5 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-hmc = { git = "https://github.com/bluele/hypermint", branch = "develop" }
+hmc = { git = "https://github.com/bluele/hypermint", tag = "v0.3.0" }
 hmemu = { path = "../.." }
