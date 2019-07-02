@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe, UnwindSafe};
 
 #[link(name = "hm", kind = "dylib")]
 extern "C" {
@@ -13,7 +14,14 @@ extern "C" {
     fn __release_mutex() -> i32;
 
     fn __get_return_value(offset: usize, value_buf_ptr: *mut u8, value_buf_len: usize) -> i32;
-    fn __get_event(name: *const u8, name_len: usize, idx: usize, offset: usize, value_buf_ptr: *mut u8, value_buf_len: usize) -> i32;
+    fn __get_event(
+        name: *const u8,
+        name_len: usize,
+        idx: usize,
+        offset: usize,
+        value_buf_ptr: *mut u8,
+        value_buf_len: usize,
+    ) -> i32;
 }
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -128,7 +136,16 @@ pub fn get_event(name: &str, idx: usize) -> Result<Vec<u8>> {
     let mut offset = 0;
     let mut val: Vec<u8> = Vec::new();
     loop {
-        match unsafe { __get_event(name.as_ptr(), name.len(), idx, offset, buf.as_mut_ptr(), buf.len()) } {
+        match unsafe {
+            __get_event(
+                name.as_ptr(),
+                name.len(),
+                idx,
+                offset,
+                buf.as_mut_ptr(),
+                buf.len(),
+            )
+        } {
             -1 => return Err("get_event: event not found".to_string()),
             0 => break,
             n => {
@@ -155,14 +172,21 @@ pub fn destroy_process() -> Result<()> {
     }
 }
 
-pub fn exec_process<T, F: FnOnce() -> Result<T>>(cb: F) -> Result<T> {
+pub fn exec_process<T, F: FnOnce() -> Result<T>>(cb: F) -> Result<T>
+where
+    F: UnwindSafe,
+{
     exec_process_with_arguments(Vec::<String>::new(), cb)
 }
 
 pub fn exec_process_with_arguments<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
     args: Vec<T2>,
     cb: F,
-) -> Result<T1> {
+) -> Result<T1>
+where
+    F: UnwindSafe,
+    T2: UnwindSafe,
+{
     exec_function(|| {
         init_process()?;
         for arg in args.into_iter() {
@@ -176,11 +200,24 @@ pub fn exec_process_with_arguments<T1, T2: Into<String>, F: FnOnce() -> Result<T
     })
 }
 
-pub fn exec_function<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T> {
+pub fn exec_function<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T>
+where
+    F: UnwindSafe,
+{
     get_mutex()?;
-    let res = f();
+    let mut res: Result<T> = Err(String::new());
+    let result = {
+        let mut resref = AssertUnwindSafe(&mut res);
+        catch_unwind(move || {
+            **resref = f();
+        })
+    };
     release_mutex()?;
-    res
+    if let Err(err) = result {
+        resume_unwind(err)
+    } else {
+        res
+    }
 }
 
 #[cfg(test)]
@@ -257,5 +294,18 @@ mod tests {
             Ok(())
         })
         .unwrap();
+    }
+
+    #[test]
+    fn exec_function_assert_test() {
+        catch_unwind(|| {
+            exec_function(|| {
+                assert_eq!(true, false);
+                Ok(())
+            })
+            .unwrap();
+        })
+        .unwrap_err();
+        exec_function(|| Ok(())).unwrap();
     }
 }
