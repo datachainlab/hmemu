@@ -15,6 +15,8 @@ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+Ce
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
 github.com/bluele/hypermint v0.2.1 h1:6R0N+C5YjJXtoPJbJVLOaOolUMLiyOYb3ZOHCBqvyeU=
 github.com/bluele/hypermint v0.2.1/go.mod h1:JO7pAOXgwaJGwN3fs3LyeJpZb4riBs6ObIrffaYAr3M=
+github.com/bluele/hypermint v0.3.0 h1:aT33OKtRtQ7s21Ln1Ut8AuRPhXTU+ZI8XboNUls6lqs=
+github.com/bluele/hypermint v0.3.0/go.mod h1:JO7pAOXgwaJGwN3fs3LyeJpZb4riBs6ObIrffaYAr3M=
 github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d h1:xG8Pj6Y6J760xwETNmMzmlt38QSwz0BLp1cZ09g27uw=
 github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d/go.mod h1:d3C0AkH6BRcvO8T0UEPu53cnw4IbV63x1bEjildYhO0=
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f/go.mod h1:TdznJufoqS23FtqVCzL0ZqgP5MqXbb4fg/WgDys70nA=

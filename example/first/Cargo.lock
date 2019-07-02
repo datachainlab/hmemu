@@ -4,21 +4,21 @@
 name = "first"
 version = "0.1.0"
 dependencies = [
- "hmc 0.1.1 (git+https://github.com/bluele/hypermint?branch=develop)",
+ "hmc 0.1.1 (git+https://github.com/bluele/hypermint?tag=v0.3.0)",
  "hmemu 0.1.0",
 ]
 
 [[package]]
 name = "hmc"
 version = "0.1.1"
-source = "git+https://github.com/bluele/hypermint?branch=develop#5db67a07e95280f2c6f3cae102e1c7c2cb07bb71"
+source = "git+https://github.com/bluele/hypermint?tag=v0.3.0#baa8e077e47e3c3a11dd908684d59fe2e211e9bc"
 
 [[package]]
 name = "hmemu"
 version = "0.1.0"
 dependencies = [
- "hmc 0.1.1 (git+https://github.com/bluele/hypermint?branch=develop)",
+ "hmc 0.1.1 (git+https://github.com/bluele/hypermint?tag=v0.3.0)",
 ]
 
 [metadata]
-"checksum hmc 0.1.1 (git+https://github.com/bluele/hypermint?branch=develop)" = "<none>"
+"checksum hmc 0.1.1 (git+https://github.com/bluele/hypermint?tag=v0.3.0)" = "<none>"
