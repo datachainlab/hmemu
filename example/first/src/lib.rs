@@ -1,10 +1,8 @@
 extern crate hmc;
-#[cfg(test)]
-extern crate hmemu;
 
 pub fn init() {}
 
-pub fn exec() -> Result<i32, String> {
+pub fn contract_func() -> Result<i32, String> {
     let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
     let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
 
@@ -20,6 +18,7 @@ pub fn exec() -> Result<i32, String> {
 
 #[cfg(test)]
 mod tests {
+    extern crate hmemu;
     use super::*;
 
     #[test]
@@ -37,10 +36,10 @@ mod tests {
     }
 
     #[test]
-    fn exec_test() {
+    fn contract_func_test() {
         let args = vec!["1", "2"];
         hmemu::exec_process_with_arguments(args, || {
-            exec().unwrap();
+            contract_func().unwrap();
             hmemu::commit_state()?;
 
             let state = hmc::read_state("key".as_bytes());
