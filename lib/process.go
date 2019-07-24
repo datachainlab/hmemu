@@ -17,8 +17,7 @@ import (
 )
 
 var (
-	defaultLogger                  = logger.GetDefaultLogger("*:debug").With("module", "process")
-	_             contract.Process = new(Process)
+	defaultLogger = logger.GetDefaultLogger("*:debug").With("module", "process")
 )
 
 type ProcessManager struct {
@@ -71,6 +70,8 @@ func (pm *ProcessManager) CurrentProcess() (*Process, error) {
 func (pm *ProcessManager) CurrentProcessID() int {
 	return pm.cpid
 }
+
+var _ contract.Process = (*Process)(nil)
 
 type Process struct {
 	initialized bool
