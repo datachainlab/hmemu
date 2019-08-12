@@ -1,0 +1,47 @@
+version: 2.1
+
+jobs:
+  build:
+    working_directory: /go/src/github.com/bluele/hmemu
+    docker:
+      - image: golang:1.12.7-stretch
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - checkout
+      - run:
+          name: "build"
+          command: |
+            make build
+      - persist_to_workspace:
+          root: /
+          paths:
+            - go/src/github.com/bluele/hmemu
+
+  test:
+    working_directory: /go/src/github.com/bluele/hmemu
+    docker:
+      - image: rust:1.34.1-stretch
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /
+      - run:
+          name: "test"
+          command: |
+            cargo test
+
+workflows:
+  version: 2
+  test-suite:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /.*/
+      - test:
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - build
