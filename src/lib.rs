@@ -184,11 +184,31 @@ pub fn exec_process_with_arguments<T1, T2: Into<String>, F: FnOnce() -> Result<T
     cb: F,
 ) -> Result<T1>
 where
-    F: UnwindSafe,
     T2: UnwindSafe,
+    F: UnwindSafe,
+{
+    exec_process_with_sender_and_arguments(&[], args, cb)
+}
+
+pub fn exec_process_with_sender<T, F: FnOnce() -> Result<T>>(sender: &[u8], cb: F) -> Result<T>
+where
+    F: UnwindSafe,
+{
+    exec_process_with_sender_and_arguments(sender, Vec::<String>::new(), cb)
+}
+
+pub fn exec_process_with_sender_and_arguments<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
+    sender: &[u8],
+    args: Vec<T2>,
+    cb: F,
+) -> Result<T1>
+where
+    T2: UnwindSafe,
+    F: UnwindSafe,
 {
     exec_function(|| {
         init_process()?;
+        init_sender(sender)?;
         for arg in args.into_iter() {
             let s = arg.into();
             init_push_arg(s.as_str())?;
@@ -246,6 +266,32 @@ mod tests {
                 let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
                 let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
                 assert_eq!(1 + i, x + y);
+                Ok(())
+            })
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn sender_test() {
+        let sender = b"d11234567890ABCDEFFF";
+        exec_process_with_sender(sender, || {
+            let s = hmc::get_sender().unwrap();
+            assert_eq!(&s, sender);
+            Ok(())
+        })
+        .unwrap();
+
+        for i in 0..10 {
+            let args = vec!["1".to_string(), i.to_string()];
+            exec_process_with_sender_and_arguments(sender, args, || {
+                let s = hmc::get_sender().unwrap();
+                assert_eq!(&s, sender);
+
+                let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
+                let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
+                assert_eq!(1 + i, x + y);
+
                 Ok(())
             })
             .unwrap();
