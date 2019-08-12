@@ -8,6 +8,8 @@ extern "C" {
     fn __init_sender(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_push_arg(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_done() -> i32;
+    fn __clear() -> i32;
+
     fn __commit_state() -> i32;
 
     fn __get_mutex(pid: i32) -> i32;
@@ -95,6 +97,15 @@ pub fn init_done() -> Result<()> {
     unsafe {
         match __init_done() {
             ret if ret < 0 => Err(format!("__init_done: error({})", ret)),
+            _ => Ok(()),
+        }
+    }
+}
+
+pub fn clear() -> Result<()> {
+    unsafe {
+        match __clear() {
+            ret if ret < 0 => Err(format!("__clear: error({})", ret)),
             _ => Ok(()),
         }
     }

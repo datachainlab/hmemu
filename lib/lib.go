@@ -5,10 +5,12 @@ import (
 	"log"
 
 	"github.com/bluele/hypermint/pkg/contract"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
 	processManager = new(ProcessManager)
+	zeroAddress common.Address
 )
 
 //export __init_process
@@ -71,6 +73,19 @@ func __init_done() int {
 		return -1
 	}
 	ps.initialized = true
+	return 0
+}
+
+//export __clear
+func __clear() int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	copy(ps.sender[:], zeroAddress[:])
+	ps.args = contract.Args{}
+	ps.initialized = false
 	return 0
 }
 
