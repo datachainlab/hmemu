@@ -8,6 +8,8 @@ extern "C" {
     fn __init_sender(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_push_arg(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_done() -> i32;
+    fn __clear() -> i32;
+
     fn __commit_state() -> i32;
 
     fn __get_mutex(pid: i32) -> i32;
@@ -95,6 +97,15 @@ pub fn init_done() -> Result<()> {
     unsafe {
         match __init_done() {
             ret if ret < 0 => Err(format!("__init_done: error({})", ret)),
+            _ => Ok(()),
+        }
+    }
+}
+
+pub fn clear() -> Result<()> {
+    unsafe {
+        match __clear() {
+            ret if ret < 0 => Err(format!("__clear: error({})", ret)),
             _ => Ok(()),
         }
     }
@@ -206,18 +217,7 @@ where
     T2: UnwindSafe,
     F: UnwindSafe,
 {
-    exec_function(|| {
-        init_process()?;
-        init_sender(sender)?;
-        for arg in args.into_iter() {
-            let s = arg.into();
-            init_push_arg(s.as_str())?;
-        }
-        init_done()?;
-        let res = cb();
-        destroy_process()?;
-        res
-    })
+    run_process(|| call_contract(sender, args, cb))
 }
 
 pub fn exec_function<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T>
@@ -238,6 +238,39 @@ where
     } else {
         res
     }
+}
+
+pub fn run_process<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T>
+where
+    F: UnwindSafe,
+{
+    exec_function(|| {
+        init_process()?;
+        let res = f();
+        destroy_process()?;
+        res
+    })
+}
+
+pub fn call_contract<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
+    sender: &[u8],
+    args: Vec<T2>,
+    cb: F,
+) -> Result<T1> {
+    init_sender(sender)?;
+    for arg in args.into_iter() {
+        let s = arg.into();
+        init_push_arg(s.as_str())?;
+    }
+    let res = match cb() {
+        Ok(v) => {
+            commit_state()?;
+            Ok(v)
+        }
+        e => e,
+    };
+    clear()?;
+    res
 }
 
 #[cfg(test)]
@@ -353,5 +386,44 @@ mod tests {
         })
         .unwrap_err();
         exec_function(|| Ok(())).unwrap();
+    }
+
+    #[test]
+    fn call_contract_test() {
+        let sender1 = b"00000000000000000001";
+        let sender2 = b"00000000000000000002";
+        let key = "key".as_bytes();
+        let value = "value".as_bytes();
+        run_process(|| {
+            {
+                let args = vec!["1", "2", "3"];
+                call_contract(sender1, args.clone(), || {
+                    let sender = hmc::get_sender().unwrap();
+                    assert_eq!(sender1, &sender);
+                    for i in 0..args.len() {
+                        let arg = hmc::get_arg_str(i)?;
+                        assert_eq!(args[i], arg);
+                    }
+                    hmc::write_state(key, value);
+                    Ok(0)
+                })?;
+            }
+
+            {
+                let args = vec!["4", "5"];
+                call_contract(sender2, args.clone(), || {
+                    let sender = hmc::get_sender().unwrap();
+                    assert_eq!(sender2, &sender);
+                    for i in 0..args.len() {
+                        let arg = hmc::get_arg_str(i)?;
+                        assert_eq!(args[i], arg);
+                    }
+                    let v = hmc::read_state(key)?;
+                    assert_eq!(value, (&v as &[u8]));
+                    Ok(0)
+                })
+            }
+        })
+        .unwrap();
     }
 }
