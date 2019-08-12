@@ -217,18 +217,7 @@ where
     T2: UnwindSafe,
     F: UnwindSafe,
 {
-    exec_function(|| {
-        init_process()?;
-        init_sender(sender)?;
-        for arg in args.into_iter() {
-            let s = arg.into();
-            init_push_arg(s.as_str())?;
-        }
-        init_done()?;
-        let res = cb();
-        destroy_process()?;
-        res
-    })
+    run_process(|| call_contract(sender, args, cb))
 }
 
 pub fn exec_function<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T>
@@ -249,6 +238,39 @@ where
     } else {
         res
     }
+}
+
+pub fn run_process<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T>
+where
+    F: UnwindSafe,
+{
+    exec_function(|| {
+        init_process()?;
+        let res = f();
+        destroy_process()?;
+        res
+    })
+}
+
+pub fn call_contract<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
+    sender: &[u8],
+    args: Vec<T2>,
+    cb: F,
+) -> Result<T1> {
+    init_sender(sender)?;
+    for arg in args.into_iter() {
+        let s = arg.into();
+        init_push_arg(s.as_str())?;
+    }
+    let res = match cb() {
+        Ok(v) => {
+            commit_state()?;
+            Ok(v)
+        }
+        e => e,
+    };
+    clear()?;
+    res
 }
 
 #[cfg(test)]
