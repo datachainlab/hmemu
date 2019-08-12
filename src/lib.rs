@@ -387,4 +387,43 @@ mod tests {
         .unwrap_err();
         exec_function(|| Ok(())).unwrap();
     }
+
+    #[test]
+    fn call_contract_test() {
+        let sender1 = b"00000000000000000001";
+        let sender2 = b"00000000000000000002";
+        let key = "key".as_bytes();
+        let value = "value".as_bytes();
+        run_process(|| {
+            {
+                let args = vec!["1", "2", "3"];
+                call_contract(sender1, args.clone(), || {
+                    let sender = hmc::get_sender().unwrap();
+                    assert_eq!(sender1, &sender);
+                    for i in 0..args.len() {
+                        let arg = hmc::get_arg_str(i)?;
+                        assert_eq!(args[i], arg);
+                    }
+                    hmc::write_state(key, value);
+                    Ok(0)
+                })?;
+            }
+
+            {
+                let args = vec!["4", "5"];
+                call_contract(sender2, args.clone(), || {
+                    let sender = hmc::get_sender().unwrap();
+                    assert_eq!(sender2, &sender);
+                    for i in 0..args.len() {
+                        let arg = hmc::get_arg_str(i)?;
+                        assert_eq!(args[i], arg);
+                    }
+                    let v = hmc::read_state(key)?;
+                    assert_eq!(value, (&v as &[u8]));
+                    Ok(0)
+                })
+            }
+        })
+        .unwrap();
+    }
 }
