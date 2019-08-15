@@ -244,12 +244,16 @@ pub fn run_process<T, F: FnOnce() -> Result<T>>(f: F) -> Result<T>
 where
     F: UnwindSafe,
 {
-    exec_function(|| {
-        init_process()?;
-        let res = f();
-        destroy_process()?;
-        res
-    })
+    if get_pid() >= 0 {
+        Err("process already exists".to_string())
+    } else {
+        exec_function(|| {
+            init_process()?;
+            let res = f();
+            destroy_process()?;
+            res
+        })
+    }
 }
 
 pub fn call_contract<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
@@ -423,6 +427,31 @@ mod tests {
                     Ok(0)
                 })
             }
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn run_process_test() {
+        let key = "key".as_bytes();
+        let value = "value".as_bytes();
+
+        // simple test
+        run_process(|| {
+            hmc::write_state(key, value);
+            Ok(0)
+        })
+        .unwrap();
+
+        // nested runners
+        run_process(|| {
+            hmc::write_state(key, value);
+            assert!(run_process(|| {
+                hmc::write_state(key, value);
+                Ok(0)
+            })
+            .is_err());
+            Ok(0)
         })
         .unwrap();
     }
