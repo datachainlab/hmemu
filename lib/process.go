@@ -93,7 +93,7 @@ func NewProcess() (*Process, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Process{kvs: kvs, db: db.NewVersionedDB(kvs, db.Version{1, 1}), stateStack: list.New()}, nil
+	return &Process{kvs: kvs, db: db.NewVersionedDB(kvs.Prefix(common.Address{}.Bytes()), db.Version{1, 1}), stateStack: list.New()}, nil
 }
 
 func newKVS() (sdk.KVStore, error) {
@@ -105,41 +105,6 @@ func newKVS() (sdk.KVStore, error) {
 		return nil, err
 	}
 	return cms.GetKVStore(key), nil
-}
-
-func (p *Process) PushState(contractAddressBytes contract.Reader) {
-	var nextContract common.Address
-	copy(nextContract[:], contractAddressBytes.Read())
-	p.stateStack.PushFront(Process{
-		initialized: p.initialized,
-		contractAddress: p.contractAddress,
-		sender: p.sender,
-		args: p.args,
-		res: p.res,
-		db: p.db,
-	})
-	// clear
-	p.initialized = false
-	p.sender = p.contractAddress
-	p.contractAddress = nextContract
-	p.args = contract.Args{}
-	p.res = nil
-	p.db = db.NewVersionedDB(p.kvs.Prefix(nextContract.Bytes()), db.Version{1, 1})
-}
-
-func (p *Process) PopState() {
-	if p.stateStack.Len() < 1 {
-		panic("stack is empty")
-	}
-	elem := p.stateStack.Front()
-	top := elem.Value.(Process)
-	p.initialized = top.initialized
-	p.contractAddress = top.contractAddress
-	p.sender = top.sender
-	p.args = top.args
-	p.res = top.res
-	p.db = top.db
-	p.stateStack.Remove(elem)
 }
 
 func (p *Process) Sender() common.Address {
@@ -176,6 +141,46 @@ func (p *Process) Logger() logger.Logger {
 
 func (p *Process) EmitEvent(ev *contract.Event) {
 	p.events = append(p.events, ev)
+}
+
+func (p *Process) InitContractAddress(addr common.Address) {
+	copy(p.contractAddress[:], addr[:])
+	p.db = db.NewVersionedDB(p.kvs.Prefix(common.Address{}.Bytes()), db.Version{1, 1})
+}
+
+func (p *Process) PushState(contractAddressBytes contract.Reader) {
+	var nextContract common.Address
+	copy(nextContract[:], contractAddressBytes.Read())
+	p.stateStack.PushFront(Process{
+		initialized: p.initialized,
+		contractAddress: p.contractAddress,
+		sender: p.sender,
+		args: p.args,
+		res: p.res,
+		db: p.db,
+	})
+	// clear
+	p.initialized = false
+	p.sender = p.contractAddress
+	p.contractAddress = nextContract
+	p.args = contract.Args{}
+	p.res = nil
+	p.db = db.NewVersionedDB(p.kvs.Prefix(nextContract.Bytes()), db.Version{1, 1})
+}
+
+func (p *Process) PopState() {
+	if p.stateStack.Len() < 1 {
+		panic("stack is empty")
+	}
+	elem := p.stateStack.Front()
+	top := elem.Value.(Process)
+	p.initialized = top.initialized
+	p.contractAddress = top.contractAddress
+	p.sender = top.sender
+	p.args = top.args
+	p.res = top.res
+	p.db = top.db
+	p.stateStack.Remove(elem)
 }
 
 type value struct {

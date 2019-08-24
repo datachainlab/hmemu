@@ -567,38 +567,92 @@ mod tests {
         .unwrap();
     }
 
-    fn func_a() -> i32 {
-        let external_contract = hmc::get_arg(0).unwrap();
-        let res = hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
-        hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
-    }
-
-    fn func_b() -> i32 {
-        hmc::return_value("ok".as_bytes())
-    }
-
     #[test]
     fn call_external_contract_test() {
-        let sender = b"00000000000000000001";
-        let contract_a = b"00000000000000000010";
-        let contract_b = b"00000000000000000011";
+        const SENDER: Address = *b"00000000000000000001";
+        const CONTRACT_A: Address = *b"00000000000000000010";
+        const CONTRACT_B: Address = *b"00000000000000000011";
+        const CONTRACT_C: Address = *b"00000000000000000012";
 
         // 1. call external contract simply, and ensure returned value matches expected
-        run_process(||{
-            init_contract_address(contract_a)?;
-            register_external_function(*contract_b, "func_b".to_string(), func_b);
+        {
+            fn func_a() -> i32 {
+                let external_contract = hmc::get_arg(0).unwrap();
+                let res =
+                    hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
+                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+            }
+            fn func_b() -> i32 {
+                hmc::return_value("ok".as_bytes())
+            }
 
-            call_contract(sender, vec![String::from_utf8(contract_b.to_vec()).unwrap()], || {
-                let s = hmc::get_sender().unwrap();
-                assert_eq!(sender, &s);
-                func_a();
-                Ok(0)
-            })?;
+            run_process(|| {
+                init_contract_address(&CONTRACT_A)?;
+                register_external_function(CONTRACT_B, "func_b".to_string(), func_b);
 
-            let ret = get_return_value()?;
-            assert_eq!("got ok".to_string().into_bytes(), ret);
+                call_contract(
+                    &SENDER,
+                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
+                    || {
+                        let s = hmc::get_sender().unwrap();
+                        assert_eq!(SENDER, s);
+                        func_a();
+                        Ok(0)
+                    },
+                )?;
 
-            Ok(())
-        }).unwrap();
+                let ret = get_return_value()?;
+                assert_eq!("got ok".to_string().into_bytes(), ret);
+
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        // 2. ensure caller address of external contract matches each contract address or sender
+        {
+            fn func_a() -> i32 {
+                let external_contract = hmc::get_arg(0).unwrap();
+                assert_eq!(SENDER, hmc::get_sender().unwrap());
+                let res =
+                    hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
+                assert_eq!(SENDER, hmc::get_sender().unwrap());
+                hmc::return_value(&res)
+            }
+            fn func_b() -> i32 {
+                assert_eq!(CONTRACT_A, hmc::get_sender().unwrap());
+                // TODO contract address is given via argument
+                let res = hmc::call_contract(&CONTRACT_C, "func_c".as_bytes(), vec![]).unwrap();
+                assert_eq!(CONTRACT_A, hmc::get_sender().unwrap());
+                hmc::return_value(&res)
+            }
+            fn func_c() -> i32 {
+                assert_eq!(CONTRACT_B, hmc::get_sender().unwrap());
+                hmc::return_value(&hmc::get_sender().unwrap())
+            }
+
+            run_process(|| {
+                init_contract_address(&CONTRACT_A)?;
+                register_external_function(CONTRACT_B, "func_b".to_string(), func_b);
+                register_external_function(CONTRACT_C, "func_c".to_string(), func_c);
+
+                call_contract(
+                    &SENDER,
+                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
+                    || {
+                        let s = hmc::get_sender().unwrap();
+                        assert_eq!(SENDER, s);
+                        func_a();
+                        Ok(0)
+                    },
+                )?;
+
+                let ret = get_return_value()?;
+                assert_eq!(ret, CONTRACT_B);
+
+                Ok(())
+            })
+            .unwrap();
+        }
     }
 }

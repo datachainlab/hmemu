@@ -44,7 +44,9 @@ func __init_contract_address(ptr uintptr, len C.int) int {
 	if ps.initialized {
 		return -1
 	}
-	copy(ps.contractAddress[:], NewReader(ptr, int(len)).Read())
+	var addr common.Address
+	copy(addr[:], NewReader(ptr, int(len)).Read())
+	ps.InitContractAddress(addr)
 	return 0
 }
 
