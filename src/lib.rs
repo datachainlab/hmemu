@@ -1,10 +1,12 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe, UnwindSafe};
 
 #[link(name = "hm", kind = "dylib")]
 extern "C" {
     fn __init_process() -> i32;
     fn __destroy_process() -> i32;
+    fn __init_contract_address(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_sender(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_push_arg(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_done() -> i32;
@@ -24,6 +26,9 @@ extern "C" {
         value_buf_ptr: *mut u8,
         value_buf_len: usize,
     ) -> i32;
+
+    fn __push_contract_state(addr_ptr: *const u8, addr_len: usize) -> i32;
+    fn __pop_contract_state() -> i32;
 }
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -69,6 +74,15 @@ pub fn init_process() -> Result<i32> {
                 });
                 Ok(pid)
             }
+        }
+    }
+}
+
+pub fn init_contract_address(addr: &[u8]) -> Result<()> {
+    unsafe {
+        match __init_contract_address(addr.as_ptr(), addr.len()) {
+            ret if ret < 0 => Err(format!("__init_contract_address: error({})", ret)),
+            _ => Ok(()),
         }
     }
 }
@@ -277,6 +291,103 @@ pub fn call_contract<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
     res
 }
 
+type Address = [u8; 20];
+type ContractFn = fn() -> i32;
+
+thread_local!(static VALUE_TABLE: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new()));
+thread_local!(static FUNC_TABLE: RefCell<HashMap<(Address, String), ContractFn >> = RefCell::new(HashMap::new()));
+
+pub fn register_external_function(addr: Address, name: String, f: ContractFn) {
+    FUNC_TABLE.with(|t| {
+        t.borrow_mut().insert((addr, name), f);
+    });
+}
+
+#[no_mangle]
+pub fn __read(id: usize, offset: usize, value_buf_ptr: *mut u8, value_buf_len: usize) -> i32 {
+    VALUE_TABLE.with(|t| {
+        let v = &t.borrow()[id];
+        if v.len() > value_buf_len {
+            return -1;
+        }
+        // TODO add support for offset
+        if offset != 0 {
+            panic!("offset option is unsupported")
+        }
+        let mut size = 0;
+        let mut ptr = value_buf_ptr;
+        for b in v {
+            unsafe {
+                *ptr = *b;
+                ptr = ptr.wrapping_add(1);
+            }
+            size += 1;
+        }
+        size
+    })
+}
+
+pub fn __write(v: Vec<u8>) -> usize {
+    VALUE_TABLE.with(|t| {
+        let mut vv = t.borrow_mut();
+        vv.push(v);
+        vv.len() - 1
+    })
+}
+
+#[no_mangle]
+pub fn __call_contract(
+    addr_ptr: *const u8,
+    addr_size: usize,
+    entry_ptr: *const u8,
+    entry_size: usize,
+    args: *const u8,
+    args_size: usize,
+) -> i32 {
+    let mut a_ptr = addr_ptr;
+    let mut e_ptr = entry_ptr;
+
+    let mut addr: Address = Default::default();
+    for i in 0..addr_size {
+        unsafe {
+            addr[i] = *a_ptr;
+        }
+        a_ptr = a_ptr.wrapping_add(1);
+    }
+    let mut entry = vec![];
+    for _ in 0..entry_size {
+        unsafe {
+            entry.push(*e_ptr);
+        }
+        e_ptr = e_ptr.wrapping_add(1);
+    }
+    let entry_name = String::from_utf8(entry).unwrap();
+
+    FUNC_TABLE.with(|t| {
+        match t.borrow().get(&(addr, entry_name)) {
+            Some(f) => {
+                unsafe {
+                    // TODO should we pass arguments via this step?
+                    __push_contract_state(addr_ptr, addr_size);
+                }
+                match f() {
+                    _ => {
+                        let res = get_return_value().unwrap();
+                        let id = __write(res) as i32;
+                        unsafe {
+                            __pop_contract_state();
+                        }
+                        id
+                    }
+                }
+            }
+            None => {
+                panic!("function not found");
+            }
+        }
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -454,5 +565,40 @@ mod tests {
             Ok(0)
         })
         .unwrap();
+    }
+
+    fn func_a() -> i32 {
+        let external_contract = hmc::get_arg(0).unwrap();
+        let res = hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
+        hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+    }
+
+    fn func_b() -> i32 {
+        hmc::return_value("ok".as_bytes())
+    }
+
+    #[test]
+    fn call_external_contract_test() {
+        let sender = b"00000000000000000001";
+        let contract_a = b"00000000000000000010";
+        let contract_b = b"00000000000000000011";
+
+        // 1. call external contract simply, and ensure returned value matches expected
+        run_process(||{
+            init_contract_address(contract_a)?;
+            register_external_function(*contract_b, "func_b".to_string(), func_b);
+
+            call_contract(sender, vec![String::from_utf8(contract_b.to_vec()).unwrap()], || {
+                let s = hmc::get_sender().unwrap();
+                assert_eq!(sender, &s);
+                func_a();
+                Ok(0)
+            })?;
+
+            let ret = get_return_value()?;
+            assert_eq!("got ok".to_string().into_bytes(), ret);
+
+            Ok(())
+        }).unwrap();
     }
 }

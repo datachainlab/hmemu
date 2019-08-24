@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"unsafe"
+	"container/list"
 
 	"github.com/bluele/hypermint/pkg/abci/store"
 	sdk "github.com/bluele/hypermint/pkg/abci/types"
@@ -75,15 +76,27 @@ var _ contract.Process = (*Process)(nil)
 
 type Process struct {
 	initialized bool
+	kvs sdk.KVStore
 	db          *db.VersionedDB
 
+	contractAddress common.Address
 	sender common.Address
 	args   contract.Args
 	res    []byte
 	events []*contract.Event
+
+	stateStack *list.List
 }
 
 func NewProcess() (*Process, error) {
+	kvs, err := newKVS()
+	if err != nil {
+		return nil, err
+	}
+	return &Process{kvs: kvs, db: db.NewVersionedDB(kvs, db.Version{1, 1}), stateStack: list.New()}, nil
+}
+
+func newKVS() (sdk.KVStore, error) {
 	mdb := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(mdb)
 	var key = sdk.NewKVStoreKey("main")
@@ -91,8 +104,42 @@ func NewProcess() (*Process, error) {
 	if err := cms.LoadLatestVersion(); err != nil {
 		return nil, err
 	}
-	kvs := cms.GetKVStore(key)
-	return &Process{db: db.NewVersionedDB(kvs, db.Version{1, 1})}, nil
+	return cms.GetKVStore(key), nil
+}
+
+func (p *Process) PushState(contractAddressBytes contract.Reader) {
+	var nextContract common.Address
+	copy(nextContract[:], contractAddressBytes.Read())
+	p.stateStack.PushFront(Process{
+		initialized: p.initialized,
+		contractAddress: p.contractAddress,
+		sender: p.sender,
+		args: p.args,
+		res: p.res,
+		db: p.db,
+	})
+	// clear
+	p.initialized = false
+	p.sender = p.contractAddress
+	p.contractAddress = nextContract
+	p.args = contract.Args{}
+	p.res = nil
+	p.db = db.NewVersionedDB(p.kvs.Prefix(nextContract.Bytes()), db.Version{1, 1})
+}
+
+func (p *Process) PopState() {
+	if p.stateStack.Len() < 1 {
+		panic("stack is empty")
+	}
+	elem := p.stateStack.Front()
+	top := elem.Value.(Process)
+	p.initialized = top.initialized
+	p.contractAddress = top.contractAddress
+	p.sender = top.sender
+	p.args = top.args
+	p.res = top.res
+	p.db = top.db
+	p.stateStack.Remove(elem)
 }
 
 func (p *Process) Sender() common.Address {

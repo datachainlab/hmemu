@@ -34,6 +34,20 @@ func __destroy_process() int {
 	return 0
 }
 
+//export __init_contract_address
+func __init_contract_address(ptr uintptr, len C.int) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	if ps.initialized {
+		return -1
+	}
+	copy(ps.contractAddress[:], NewReader(ptr, int(len)).Read())
+	return 0
+}
+
 //export __init_sender
 func __init_sender(ptr uintptr, len C.int) int {
 	ps, err := processManager.CurrentProcess()
@@ -271,6 +285,31 @@ func __emit_event(
 		NewReader(ev, int(evLen)),
 		NewReader(data, int(dataLen)),
 	)
+}
+
+//export __push_contract_state
+func __push_contract_state(
+	addrPtr uintptr,
+	addrLen C.int,
+) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	ps.PushState(NewReader(addrPtr, int(addrLen)))
+	return 0
+}
+
+//export __pop_contract_state
+func __pop_contract_state() int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	ps.PopState()
+	return 0
 }
 
 func main() {}
