@@ -14,7 +14,7 @@ import (
 	"github.com/bluele/hypermint/pkg/db"
 	"github.com/bluele/hypermint/pkg/logger"
 	"github.com/ethereum/go-ethereum/common"
-	dbm "github.com/tendermint/tendermint/libs/db"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var (
@@ -86,6 +86,7 @@ type Process struct {
 	events []*contract.Event
 
 	stateStack *list.List
+	sets db.RWSets
 }
 
 func NewProcess() (*Process, error) {
@@ -143,9 +144,10 @@ func (p *Process) EmitEvent(ev *contract.Event) {
 	p.events = append(p.events, ev)
 }
 
+// TODO this method should be moved into NewProcess?
 func (p *Process) InitContractAddress(addr common.Address) {
 	copy(p.contractAddress[:], addr[:])
-	p.db = db.NewVersionedDB(p.kvs.Prefix(common.Address{}.Bytes()), db.Version{1, 1})
+	p.db = db.NewVersionedDB(p.kvs.Prefix(p.contractAddress.Bytes()), db.Version{1, 1})
 }
 
 func (p *Process) PushState(contractAddressBytes contract.Reader) {
@@ -175,12 +177,28 @@ func (p *Process) PopState() {
 	elem := p.stateStack.Front()
 	top := elem.Value.(Process)
 	p.initialized = top.initialized
-	p.contractAddress = top.contractAddress
 	p.sender = top.sender
 	p.args = top.args
 	p.res = top.res
+	p.sets = append(p.sets, &db.RWSet{
+		Address: p.contractAddress,
+		Items:   p.db.RWSetItems(),
+	})
+	p.contractAddress = top.contractAddress
 	p.db = top.db
 	p.stateStack.Remove(elem)
+}
+
+func (p *Process) CommitState() error {
+	sets := make([]*db.RWSet, len(p.sets))
+	copy(sets[:], p.sets)
+	sets = append(sets, set)
+	set := &db.RWSet{
+		Address: p.contractAddress,
+		Items:   p.db.RWSetItems(),
+	}
+	db.CommitState(p.kvs, sets, db.Version{1, 1})
+	return nil
 }
 
 type value struct {

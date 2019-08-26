@@ -297,7 +297,7 @@ type ContractFn = fn() -> i32;
 thread_local!(static VALUE_TABLE: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new()));
 thread_local!(static FUNC_TABLE: RefCell<HashMap<(Address, String), ContractFn >> = RefCell::new(HashMap::new()));
 
-pub fn register_external_function(addr: Address, name: String, f: ContractFn) {
+pub fn register_contract_function(addr: Address, name: String, f: ContractFn) {
     FUNC_TABLE.with(|t| {
         t.borrow_mut().insert((addr, name), f);
     });
@@ -588,7 +588,7 @@ mod tests {
 
             run_process(|| {
                 init_contract_address(&CONTRACT_A)?;
-                register_external_function(CONTRACT_B, "func_b".to_string(), func_b);
+                register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
 
                 call_contract(
                     &SENDER,
@@ -633,8 +633,8 @@ mod tests {
 
             run_process(|| {
                 init_contract_address(&CONTRACT_A)?;
-                register_external_function(CONTRACT_B, "func_b".to_string(), func_b);
-                register_external_function(CONTRACT_C, "func_c".to_string(), func_c);
+                register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
+                register_contract_function(CONTRACT_C, "func_c".to_string(), func_c);
 
                 call_contract(
                     &SENDER,
@@ -649,6 +649,69 @@ mod tests {
 
                 let ret = get_return_value()?;
                 assert_eq!(ret, CONTRACT_B);
+
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        // 3. ensure each updated contract state is valid
+        {
+            fn func_a() -> i32 {
+                let key = "key_a".as_bytes();
+                let value = "value_a".as_bytes();
+
+                let external_contract = hmc::get_arg(0).unwrap();
+                hmc::write_state(key, value);
+                let res =
+                    hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
+                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+            }
+            fn func_b() -> i32 {
+                let key = "key_b".as_bytes();
+                let value = "value_b".as_bytes();
+
+                let res = hmc::call_contract(&CONTRACT_C, "func_c".as_bytes(), vec![]).unwrap();
+                hmc::write_state(key, value);
+                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+            }
+            fn func_c() -> i32 {
+                let key = "key_c".as_bytes();
+                let value = "value_c".as_bytes();
+
+                hmc::write_state(key, value);
+                hmc::return_value("ok".as_bytes())
+            }
+
+            run_process(|| {
+                init_contract_address(&CONTRACT_A)?;
+                register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
+                register_contract_function(CONTRACT_C, "func_c".to_string(), func_c);
+
+                call_contract(
+                    &SENDER,
+                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
+                    || {
+                        let s = hmc::get_sender().unwrap();
+                        assert_eq!(SENDER, s);
+                        func_a();
+                        Ok(0)
+                    },
+                )?;
+
+                let ret = get_return_value()?;
+                assert_eq!("got got ok".to_string().into_bytes(), ret);
+                commit_state()?;
+
+                assert_eq!("value_a", hmc::read_state_str("key_a".as_bytes()).unwrap());
+                assert!(hmc::read_state_str("key_b".as_bytes()).is_err());
+
+                init_contract_address(&CONTRACT_B)?;
+                assert_eq!("value_b", hmc::read_state_str("key_b".as_bytes()).unwrap());
+                assert!(hmc::read_state_str("key_c".as_bytes()).is_err());
+
+                init_contract_address(&CONTRACT_C)?;
+                assert_eq!("value_c", hmc::read_state_str("key_c".as_bytes()).unwrap());
 
                 Ok(())
             })

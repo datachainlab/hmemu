@@ -112,7 +112,7 @@ func __commit_state() int {
 		log.Println(err)
 		return -1
 	}
-	if _, err := ps.db.Commit(); err != nil {
+	if err := ps.CommitState(); err != nil {
 		log.Println("__commit_state:", err)
 		return -1
 	}
