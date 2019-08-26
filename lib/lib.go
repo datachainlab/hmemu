@@ -78,6 +78,25 @@ func __init_push_arg(ptr uintptr, len C.int) int {
 	return 0
 }
 
+//export __init_args
+func __init_args(ptr uintptr, len C.int) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	if ps.initialized {
+		return -1
+	}
+	args, err := contract.DeserializeArgs(NewReader(ptr, int(len)).Read())
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	ps.args = args
+	return 0
+}
+
 //export __init_done
 func __init_done() int {
 	ps, err := processManager.CurrentProcess()

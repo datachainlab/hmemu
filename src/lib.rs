@@ -9,6 +9,7 @@ extern "C" {
     fn __init_contract_address(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_sender(value_ptr: *const u8, value_len: usize) -> i32;
     fn __init_push_arg(value_ptr: *const u8, value_len: usize) -> i32;
+    fn __init_args(values_ptr: *const u8, values_len: usize) -> i32;
     fn __init_done() -> i32;
     fn __clear() -> i32;
 
@@ -363,27 +364,30 @@ pub fn __call_contract(
     }
     let entry_name = String::from_utf8(entry).unwrap();
 
-    FUNC_TABLE.with(|t| {
-        match t.borrow().get(&(addr, entry_name)) {
-            Some(f) => {
-                unsafe {
-                    // TODO should we pass arguments via this step?
-                    __push_contract_state(addr_ptr, addr_size);
+    FUNC_TABLE.with(|t| match t.borrow().get(&(addr, entry_name)) {
+        Some(f) => {
+            unsafe {
+                if __push_contract_state(addr_ptr, addr_size) != 0 {
+                    panic!("failed to call __push_contract_state");
                 }
-                match f() {
-                    _ => {
-                        let res = get_return_value().unwrap();
-                        let id = __write(res) as i32;
-                        unsafe {
-                            __pop_contract_state();
-                        }
-                        id
+                if __init_args(args, args_size) != 0 {
+                    panic!("failed to call __init_args");
+                }
+            }
+            match f() {
+                c if c >= 0 => {
+                    let res = get_return_value().unwrap();
+                    let id = __write(res) as i32;
+                    unsafe {
+                        __pop_contract_state();
                     }
+                    id
                 }
+                c => c,
             }
-            None => {
-                panic!("function not found");
-            }
+        }
+        None => {
+            panic!("function not found");
         }
     })
 }
@@ -609,7 +613,51 @@ mod tests {
             .unwrap();
         }
 
-        // 2. ensure caller address of external contract matches each contract address or sender
+        // 2. call external contract with arguments
+        {
+            fn func_a() -> i32 {
+                let external_contract = hmc::get_arg(0).unwrap();
+                let x = hmc::get_arg(1).unwrap();
+                let y = hmc::get_arg(2).unwrap();
+                let res =
+                    hmc::call_contract(&external_contract, "func_add".as_bytes(), vec![&x, &y])
+                        .unwrap();
+                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+            }
+            fn func_add() -> i32 {
+                let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
+                let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
+                hmc::return_value(format!("{}", x + y).as_bytes())
+            }
+
+            run_process(|| {
+                init_contract_address(&CONTRACT_A)?;
+                register_contract_function(CONTRACT_B, "func_add".to_string(), func_add);
+
+                call_contract(
+                    &SENDER,
+                    vec![
+                        String::from_utf8(CONTRACT_B.to_vec()).unwrap().as_str(),
+                        "100",
+                        "200",
+                    ],
+                    || {
+                        let s = hmc::get_sender().unwrap();
+                        assert_eq!(SENDER, s);
+                        func_a();
+                        Ok(0)
+                    },
+                )?;
+
+                let ret = get_return_value()?;
+                assert_eq!("got 300".to_string().into_bytes(), ret);
+
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        // 3. ensure caller address of external contract matches each contract address or sender
         {
             fn func_a() -> i32 {
                 let external_contract = hmc::get_arg(0).unwrap();
@@ -621,7 +669,6 @@ mod tests {
             }
             fn func_b() -> i32 {
                 assert_eq!(CONTRACT_A, hmc::get_sender().unwrap());
-                // TODO contract address is given via argument
                 let res = hmc::call_contract(&CONTRACT_C, "func_c".as_bytes(), vec![]).unwrap();
                 assert_eq!(CONTRACT_A, hmc::get_sender().unwrap());
                 hmc::return_value(&res)
@@ -655,7 +702,7 @@ mod tests {
             .unwrap();
         }
 
-        // 3. ensure each updated contract state is valid
+        // 4. ensure each updated contract state is valid
         {
             fn func_a() -> i32 {
                 let key = "key_a".as_bytes();

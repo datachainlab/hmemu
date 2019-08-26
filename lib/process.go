@@ -192,11 +192,11 @@ func (p *Process) PopState() {
 func (p *Process) CommitState() error {
 	sets := make([]*db.RWSet, len(p.sets))
 	copy(sets[:], p.sets)
-	sets = append(sets, set)
 	set := &db.RWSet{
 		Address: p.contractAddress,
 		Items:   p.db.RWSetItems(),
 	}
+	sets = append(sets, set)
 	db.CommitState(p.kvs, sets, db.Version{1, 1})
 	return nil
 }
@@ -217,6 +217,9 @@ func (val *value) Write(v []byte) int {
 }
 
 func (val *value) Read() []byte {
+	if val.len == 0 {
+		return []byte{}
+	}
 	return C.GoBytes(unsafe.Pointer(val.pos), C.int(val.len))
 }
 
