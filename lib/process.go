@@ -94,7 +94,7 @@ func NewProcess() (*Process, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Process{kvs: kvs, db: db.NewVersionedDB(kvs.Prefix(common.Address{}.Bytes()), db.Version{1, 1}), stateStack: list.New()}, nil
+	return &Process{kvs: kvs, db: db.NewVersionedDB(kvs.Prefix(common.Address{}.Bytes())), stateStack: list.New()}, nil
 }
 
 func newKVS() (sdk.KVStore, error) {
@@ -147,7 +147,7 @@ func (p *Process) EmitEvent(ev *contract.Event) {
 // TODO this method should be moved into NewProcess?
 func (p *Process) InitContractAddress(addr common.Address) {
 	copy(p.contractAddress[:], addr[:])
-	p.db = db.NewVersionedDB(p.kvs.Prefix(p.contractAddress.Bytes()), db.Version{1, 1})
+	p.db = db.NewVersionedDB(p.kvs.Prefix(p.contractAddress.Bytes()))
 }
 
 func (p *Process) PushState(contractAddressBytes contract.Reader) {
@@ -167,7 +167,7 @@ func (p *Process) PushState(contractAddressBytes contract.Reader) {
 	p.contractAddress = nextContract
 	p.args = contract.Args{}
 	p.res = nil
-	p.db = db.NewVersionedDB(p.kvs.Prefix(nextContract.Bytes()), db.Version{1, 1})
+	p.db = db.NewVersionedDB(p.kvs.Prefix(nextContract.Bytes()))
 }
 
 func (p *Process) PopState() {

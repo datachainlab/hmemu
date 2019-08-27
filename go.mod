@@ -9,7 +9,7 @@ replace (
 
 require (
 	github.com/beorn7/perks v1.0.0 // indirect
-	github.com/bluele/hypermint v0.0.0-20190826154745-87c53298d313
+	github.com/bluele/hypermint v0.0.0-20190827090512-aad199e65374
 	github.com/ethereum/go-ethereum v1.8.21
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect

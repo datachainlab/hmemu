@@ -6,7 +6,7 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-hmc = { git = "https://github.com/bluele/hypermint", tag = "v0.4.0" }
+hmc = { git = "https://github.com/bluele/hypermint", revision = "aad199e6537452a1e813b319615d22d57117fda3" }
 
 [lib]
 name = "hmemu"

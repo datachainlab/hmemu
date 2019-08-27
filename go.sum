@@ -17,6 +17,8 @@ github.com/bluele/hypermint v0.0.0-20190826110509-196e5c493145 h1:mK7emlTkZJM85A
 github.com/bluele/hypermint v0.0.0-20190826110509-196e5c493145/go.mod h1:BMzLUbytVgqTXMcJMFlImSsNr/baEMDMlX6Dra4r5bk=
 github.com/bluele/hypermint v0.0.0-20190826154745-87c53298d313 h1:7LiFBCiVoC6LDJ8L48FTdMd4715tHW1d5k3RDpAQA/w=
 github.com/bluele/hypermint v0.0.0-20190826154745-87c53298d313/go.mod h1:BMzLUbytVgqTXMcJMFlImSsNr/baEMDMlX6Dra4r5bk=
+github.com/bluele/hypermint v0.0.0-20190827090512-aad199e65374 h1:C4xYRuOolwNGXuGPTzW2ULOMuJHgh4Q3pZHGFAMHjwA=
+github.com/bluele/hypermint v0.0.0-20190827090512-aad199e65374/go.mod h1:BMzLUbytVgqTXMcJMFlImSsNr/baEMDMlX6Dra4r5bk=
 github.com/bluele/hypermint v0.2.1 h1:6R0N+C5YjJXtoPJbJVLOaOolUMLiyOYb3ZOHCBqvyeU=
 github.com/bluele/hypermint v0.2.1/go.mod h1:JO7pAOXgwaJGwN3fs3LyeJpZb4riBs6ObIrffaYAr3M=
 github.com/bluele/hypermint v0.3.0 h1:aT33OKtRtQ7s21Ln1Ut8AuRPhXTU+ZI8XboNUls6lqs=
