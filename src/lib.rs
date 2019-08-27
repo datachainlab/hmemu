@@ -143,7 +143,7 @@ pub fn get_return_value() -> Result<Vec<u8>> {
     let mut val: Vec<u8> = Vec::new();
     loop {
         match unsafe { __get_return_value(offset, buf.as_mut_ptr(), buf.len()) } {
-            -1 => return Err("read_state: key not found".to_string()),
+            -1 => return Err("__get_return_value: key not found".to_string()),
             0 => break,
             n => {
                 val.extend_from_slice(&buf[0..n as usize]);
@@ -308,23 +308,24 @@ pub fn register_contract_function(addr: Address, name: String, f: ContractFn) {
 pub fn __read(id: usize, offset: usize, value_buf_ptr: *mut u8, value_buf_len: usize) -> i32 {
     VALUE_TABLE.with(|t| {
         let v = &t.borrow()[id];
-        if v.len() > value_buf_len {
-            return -1;
-        }
-        // TODO add support for offset
-        if offset != 0 {
-            panic!("offset option is unsupported")
-        }
-        let mut size = 0;
+        let mut size: usize = 0;
         let mut ptr = value_buf_ptr;
+        let mut count = 0;
         for b in v {
+            if offset > count {
+                count += 1;
+                continue;
+            }
             unsafe {
                 *ptr = *b;
                 ptr = ptr.wrapping_add(1);
             }
             size += 1;
+            if size == value_buf_len {
+                break;
+            }
         }
-        size
+        size as i32
     })
 }
 
@@ -773,5 +774,38 @@ mod tests {
             })
             .unwrap();
         }
+
+        // 5. ensure that works correctly when a return value of external contract is bigger than default buffer size
+        {
+            const RET_SIZE: usize = BUF_SIZE+1;
+            fn func_a() -> i32 {
+                let res =
+                    hmc::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![]).unwrap();
+                hmc::return_value(&res)
+            }
+            fn func_b() -> i32 {
+                let value = [0u8; RET_SIZE];
+                hmc::return_value(&value)
+            }
+
+            run_process(|| {
+                init_contract_address(&CONTRACT_A)?;
+                register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
+
+                call_contract(
+                    &SENDER,
+                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
+                    || {
+                        func_a();
+                        Ok(0)
+                    },
+                )?;
+                assert_eq!(RET_SIZE, get_return_value()?.len());
+
+                Ok(())
+            })
+            .unwrap();
+        }
+
     }
 }
