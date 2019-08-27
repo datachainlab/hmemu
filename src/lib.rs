@@ -379,11 +379,20 @@ pub fn __call_contract(
                     let res = get_return_value().unwrap();
                     let id = __write(res) as i32;
                     unsafe {
-                        __pop_contract_state();
+                        if __pop_contract_state() != 0 {
+                            panic!("failed to call __pop_contract_state");
+                        }
                     }
                     id
                 }
-                c => c,
+                c => {
+                    unsafe {
+                        if __pop_contract_state() != 0 {
+                            panic!("failed to call __pop_contract_state");
+                        }
+                    }
+                    c
+                }
             }
         }
         None => {
