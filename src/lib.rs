@@ -736,8 +736,13 @@ mod tests {
                 let key = "key_c".as_bytes();
                 let value = "value_c".as_bytes();
 
-                hmc::write_state(key, value);
-                hmc::return_value("ok".as_bytes())
+                match hmc::read_state(key) {
+                    Ok(_) => hmc::return_value("exists".as_bytes()),
+                    Err(_) => {
+                        hmc::write_state(key, value);
+                        hmc::return_value("ok".as_bytes())
+                    }
+                }
             }
 
             run_process(|| {
@@ -749,15 +754,12 @@ mod tests {
                     &SENDER,
                     vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
                     || {
-                        let s = hmc::get_sender().unwrap();
-                        assert_eq!(SENDER, s);
                         func_a();
                         Ok(0)
                     },
                 )?;
 
-                let ret = get_return_value()?;
-                assert_eq!("got got ok".to_string().into_bytes(), ret);
+                assert_eq!("got got ok".to_string().into_bytes(), get_return_value()?);
                 commit_state()?;
 
                 assert_eq!("value_a", hmc::read_state_str("key_a".as_bytes()).unwrap());
@@ -770,6 +772,21 @@ mod tests {
                 init_contract_address(&CONTRACT_C)?;
                 assert_eq!("value_c", hmc::read_state_str("key_c".as_bytes()).unwrap());
 
+                // check if next tx execution can see a committed state
+                init_contract_address(&CONTRACT_A)?;
+                call_contract(
+                    &SENDER,
+                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
+                    || {
+                        func_a();
+                        Ok(0)
+                    },
+                )?;
+                assert_eq!(
+                    "got got exists".to_string().into_bytes(),
+                    get_return_value()?
+                );
+
                 Ok(())
             })
             .unwrap();
@@ -777,10 +794,9 @@ mod tests {
 
         // 5. ensure that works correctly when a return value of external contract is bigger than default buffer size
         {
-            const RET_SIZE: usize = BUF_SIZE+1;
+            const RET_SIZE: usize = BUF_SIZE + 1;
             fn func_a() -> i32 {
-                let res =
-                    hmc::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![]).unwrap();
+                let res = hmc::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![]).unwrap();
                 hmc::return_value(&res)
             }
             fn func_b() -> i32 {
@@ -806,6 +822,5 @@ mod tests {
             })
             .unwrap();
         }
-
     }
 }
