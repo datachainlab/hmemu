@@ -112,8 +112,20 @@ func (p *Process) Sender() common.Address {
 	return p.sender
 }
 
+func (p *Process) ContractAddress() common.Address {
+	return p.contractAddress
+}
+
 func (p *Process) Args() contract.Args {
 	return p.args
+}
+
+func (p *Process) GetArg(idx int) ([]byte, error) {
+	arg, ok := p.args.Get(idx)
+	if !ok {
+		return nil, contract.ErrArgIdxNotFound
+	}
+	return arg, nil
 }
 
 func (p *Process) Call(addr common.Address, entry []byte, args contract.Args) (int, error) {

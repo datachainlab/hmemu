@@ -2,6 +2,8 @@
 
 An emulation library to ease contract development and testing for hypermint.
 
+This version supports hypermint **v0.4.1**.
+
 ## Getting started
 
 First, please append following code to Cargo.toml in your project.
