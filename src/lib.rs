@@ -461,6 +461,31 @@ mod tests {
     }
 
     #[test]
+    fn contract_address_test() {
+        let sender1 = b"00000000000000000001";
+        const CONTRACT_A: Address = *b"00000000000000000010";
+        const CONTRACT_B: Address = *b"00000000000000000011";
+
+        fn func_b() -> i32 {
+            hmc::return_value(&hmc::get_contract_address().unwrap())
+        }
+
+        run_process(|| {
+            init_contract_address(&CONTRACT_A)?;
+            register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
+
+            call_contract(sender1, Vec::<String>::new(), || {
+                let addr = hmc::get_contract_address()?;
+                assert_eq!(CONTRACT_A, addr);
+                let res = hmc::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![])?;
+                assert_eq!(CONTRACT_B.to_vec(), res);
+                Ok(0)
+            })
+        })
+        .unwrap();
+    }
+
+    #[test]
     fn state_test() {
         exec_process(|| {
             let key = "key".as_bytes();
