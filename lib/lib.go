@@ -177,6 +177,16 @@ func __get_sender(ptr uintptr, len C.int) int {
 	return contract.GetSender(ps, NewWriter(ptr, int(len)))
 }
 
+//export __get_contract_address
+func __get_contract_address(ptr uintptr, len C.int) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	return contract.GetContractAddress(ps, NewWriter(ptr, int(len)))
+}
+
 //export __get_arg
 func __get_arg(idx, offset C.int, ptr uintptr, len C.int) int {
 	ps, err := processManager.CurrentProcess()
