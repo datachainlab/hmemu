@@ -16,7 +16,7 @@ fn main() {
         ])
         .current_dir(&Path::new("."))
         .status()
-        .unwrap();
+        .expect("failed to execute go build");
 
     println!(r"cargo:rustc-link-lib=dylib=hm");
     println!(r"cargo:rustc-link-search=native={}", &out_dir);
