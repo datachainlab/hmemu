@@ -71,6 +71,15 @@ name = "hmemu"
 version = "0.1.0"
 dependencies = [
  "hmcdk 0.1.0",
+ "hmemu_codegen 0.1.0",
+]
+
+[[package]]
+name = "hmemu_codegen"
+version = "0.1.0"
+dependencies = [
+ "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 0.15.44 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
