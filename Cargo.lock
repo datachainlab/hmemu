@@ -31,6 +31,13 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "hmcdk 0.1.0",
+]
+
+[[package]]
 name = "failure"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -48,6 +55,15 @@ dependencies = [
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.44 (registry+https://github.com/rust-lang/crates.io-index)",
  "synstructure 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "first"
+version = "0.1.0"
+dependencies = [
+ "hmcdk 0.1.0",
+ "hmemu 0.1.0",
+ "hmemu_codegen 0.1.0",
 ]
 
 [[package]]
@@ -70,6 +86,7 @@ dependencies = [
 name = "hmemu"
 version = "0.1.0"
 dependencies = [
+ "core 0.1.0",
  "hmcdk 0.1.0",
  "hmemu_codegen 0.1.0",
 ]
@@ -78,6 +95,7 @@ dependencies = [
 name = "hmemu_codegen"
 version = "0.1.0"
 dependencies = [
+ "core 0.1.0",
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.44 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

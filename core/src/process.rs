@@ -1,9 +1,9 @@
+use crate::types::Args;
 use hmcdk::error;
 use hmcdk::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe, UnwindSafe};
-use crate::types::{Args};
 
 #[link(name = "hm", kind = "dylib")]
 extern "C" {
@@ -323,7 +323,7 @@ pub fn __read(id: usize, offset: usize, value_buf_ptr: *mut u8, value_buf_len: u
     })
 }
 
-type ContractFn = fn() -> i32;
+pub type ContractFn = fn() -> i32;
 
 thread_local!(static VALUE_TABLE: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new()));
 thread_local!(static FUNC_TABLE: RefCell<HashMap<(Address, String), ContractFn >> = RefCell::new(HashMap::new()));
@@ -410,8 +410,8 @@ pub fn register_contract_function(addr: Address, name: String, f: ContractFn) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::ArgsBuilder;
     use hmcdk::api;
-    use crate::types::{ArgsBuilder};
 
     #[test]
     fn initialize_test() {

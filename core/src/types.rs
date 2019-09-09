@@ -10,7 +10,9 @@ pub struct ArgsBuilder {
 
 impl ArgsBuilder {
     pub fn new() -> Self {
-        ArgsBuilder{values: Args::default()}
+        ArgsBuilder {
+            values: Args::default(),
+        }
     }
 
     pub fn push<T: ToBytes>(&mut self, arg: T) {

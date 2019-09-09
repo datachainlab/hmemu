@@ -1,8 +1,6 @@
 extern crate hmcdk;
 use hmcdk::api;
-use hmcdk::error;
 use hmcdk::prelude::*;
-use hmcdk::utils;
 
 #[contract]
 pub fn init() -> R<i32> {
@@ -14,7 +12,7 @@ pub fn contract_func() -> R<i64> {
     let x: i64 = api::get_arg(0)?;
     let y: i64 = api::get_arg(1)?;
 
-    api::log(&format!("{}", x+y).to_bytes());
+    api::log(&format!("{}", x + y).to_bytes());
 
     let key = "key";
     api::write_state(key.as_bytes(), format!("value").as_bytes());
@@ -22,14 +20,33 @@ pub fn contract_func() -> R<i64> {
     Ok(Some(x + y))
 }
 
+mod othermod {
+    #![allow(dead_code)]
+    pub fn cfn() -> i32 {
+        1
+    }
+    pub fn __cfn() -> i32 {
+        100
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate hmemu;
     use super::*;
+    use hmcdk::error;
+    use hmcdk::utils;
+    use hmemu::types::ArgsBuilder;
+    use hmemu::contract_fn;
+
+    #[test]
+    fn test_lookup_contract_fn() {
+        assert_eq!(contract_fn!(othermod::cfn)(), 100);
+    }
 
     #[test]
     fn simple_process_execution() {
-        let mut args_ = hmemu::ArgsBuilder::new();
+        let mut args_ = ArgsBuilder::new();
         args_.push(1i64);
         args_.push(2i64);
 
@@ -45,7 +62,7 @@ mod tests {
 
     #[test]
     fn contract_func_test() {
-        let mut args_ = hmemu::ArgsBuilder::new();
+        let mut args_ = ArgsBuilder::new();
         args_.push(1i64);
         args_.push(2i64);
         hmemu::exec_process_with_arguments(args_.convert_to_vec(), || {
@@ -88,7 +105,7 @@ mod tests {
         hmemu::run_process(|| {
             hmemu::register_contract_function(contract, "get_balance".to_string(), external_func);
 
-            hmemu::call_contract(&sender, hmemu::ArgsBuilder::new().convert_to_vec(), || {
+            hmemu::call_contract(&sender, ArgsBuilder::new().convert_to_vec(), || {
                 let ret: i32 =
                     api::call_contract(&contract, "get_balance".as_bytes(), vec![]).unwrap();
                 assert_eq!(100, ret);

@@ -1,5 +1,7 @@
 [workspace]
 members = [
   "lib/",
+  "core/",
   "codegen/",
+  "example/first",
 ]
