@@ -6,7 +6,7 @@ authors = ["Jun Kimura <junkxdev@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-hmcdk = { path = "../../../../bluele/hypermint/hmcdk/lib" }
+hmcdk = { git = "https://github.com/bluele/hypermint", tag = "v0.4.2" }
 hmemu = { path = "../../lib" }
 hmemu_codegen = { version = "0.1.0", path = "../../codegen" }
 

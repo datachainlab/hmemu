@@ -6,8 +6,7 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-# hmc = { git = "https://github.com/bluele/hypermint", tag = "v0.4.1" 
-hmcdk = { path = "../../../bluele/hypermint/hmcdk/lib" }
+hmcdk = { git = "https://github.com/bluele/hypermint", tag = "v0.4.2" }
 
 [lib]
 crate-type = ["cdylib", "lib"]
