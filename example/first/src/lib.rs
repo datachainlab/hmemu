@@ -21,12 +21,11 @@ pub fn contract_func() -> R<i64> {
 }
 
 mod othermod {
-    #![allow(dead_code)]
-    pub fn cfn() -> i32 {
-        1
-    }
-    pub fn __cfn() -> i32 {
-        100
+    use super::*;
+
+    #[contract]
+    pub fn cfn() -> R<String> {
+        Ok(Some("ok".to_string()))
     }
 }
 
@@ -38,11 +37,6 @@ mod tests {
     use hmcdk::utils;
     use hmemu::types::ArgsBuilder;
     use hmemu::contract_fn;
-
-    #[test]
-    fn test_lookup_contract_fn() {
-        assert_eq!(contract_fn!(othermod::cfn)(), 100);
-    }
 
     #[test]
     fn simple_process_execution() {
@@ -83,8 +77,9 @@ mod tests {
         .unwrap();
     }
 
-    fn external_func() -> i32 {
-        api::return_value(&100i32.to_bytes())
+    #[contract]
+    fn external_func() -> R<i32> {
+        Ok(Some(100))
     }
 
     fn hex_to_address(hex_str: &str) -> Result<Address, error::Error> {
@@ -103,12 +98,25 @@ mod tests {
         let sender = hex_to_address("0x1221a0726d56aedea9dbe2522ddae3dd8ed0f36c").unwrap();
         let contract = hex_to_address("0xd8eba1f372b9e0d378259f150d52c2e6c2e4109a").unwrap();
         hmemu::run_process(|| {
-            hmemu::register_contract_function(contract, "get_balance".to_string(), external_func);
+            hmemu::register_contract_function(contract, "get_balance".to_string(), contract_fn!(external_func));
 
             hmemu::call_contract(&sender, ArgsBuilder::new().convert_to_vec(), || {
                 let ret: i32 =
                     api::call_contract(&contract, "get_balance".as_bytes(), vec![]).unwrap();
                 assert_eq!(100, ret);
+                Ok(())
+            })?;
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn lookup_contract_fn_test() {
+        let sender = hex_to_address("0x1221a0726d56aedea9dbe2522ddae3dd8ed0f36c").unwrap();
+        hmemu::run_process(|| {
+            hmemu::call_contract(&sender, ArgsBuilder::new().convert_to_vec(), || {
+                assert_eq!(contract_fn!(othermod::cfn)(), 0);
                 Ok(())
             })?;
             Ok(())
