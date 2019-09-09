@@ -26,7 +26,7 @@ fn process_input(input: TokenStream) -> TokenStream {
     let path = match ast {
         syn::FnArg::Ignored(syn::Type::Path(mut x)) => {
             let id = x.path.segments.len();
-            let mut seg = &mut x.path.segments[id-1];
+            let mut seg = &mut x.path.segments[id - 1];
             // convert into contract API
             let ident = format!("__{}", seg.ident);
             seg.ident = syn::Ident::new(&ident, seg.ident.span());

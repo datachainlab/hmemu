@@ -35,8 +35,8 @@ mod tests {
     use super::*;
     use hmcdk::error;
     use hmcdk::utils;
-    use hmemu::types::ArgsBuilder;
     use hmemu::contract_fn;
+    use hmemu::types::ArgsBuilder;
 
     #[test]
     fn simple_process_execution() {
@@ -98,7 +98,11 @@ mod tests {
         let sender = hex_to_address("0x1221a0726d56aedea9dbe2522ddae3dd8ed0f36c").unwrap();
         let contract = hex_to_address("0xd8eba1f372b9e0d378259f150d52c2e6c2e4109a").unwrap();
         hmemu::run_process(|| {
-            hmemu::register_contract_function(contract, "get_balance".to_string(), contract_fn!(external_func));
+            hmemu::register_contract_function(
+                contract,
+                "get_balance".to_string(),
+                contract_fn!(external_func),
+            );
 
             hmemu::call_contract(&sender, ArgsBuilder::new().convert_to_vec(), || {
                 let ret: i32 =
