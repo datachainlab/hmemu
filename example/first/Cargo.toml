@@ -2,8 +2,13 @@
 name = "first"
 version = "0.1.0"
 authors = ["Jun Kimura <junkxdev@gmail.com>"]
-build = "build.rs"
+edition = "2018"
 
 [dependencies]
-hmc = { git = "https://github.com/bluele/hypermint", branch = "develop" }
+hmc = { git = "https://github.com/bluele/hypermint", tag = "v0.3.0" }
+
+[dev-dependencies]
 hmemu = { path = "../.." }
+
+[lib]
+crate-type = ["cdylib"]

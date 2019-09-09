@@ -1,0 +1,32 @@
+version: 2
+
+jobs:
+  test:
+    working_directory: /go/src/github.com/bluele/hmemu
+    docker:
+      - image: bluele/go-rust:0.1.0
+    environment:
+      GO111MODULE: "on"
+    steps:
+      - checkout
+      - run:
+          name: "build lib"
+          command: |
+            make build
+      - run:
+          name: "build"
+          command: |
+            cargo build
+      - run:
+          name: "test"
+          command: |
+            cargo test
+
+workflows:
+  version: 2
+  test-suite:
+    jobs:
+      - test:
+          filters:
+            tags:
+              only: /.*/
