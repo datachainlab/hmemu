@@ -12,7 +12,7 @@ fn main() {
             "-o",
             &format!("{}/libhm.so", out_dir),
             "-buildmode=c-shared",
-            "./lib",
+            "../runtime",
         ])
         .current_dir(&Path::new("."))
         .status()

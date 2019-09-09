@@ -1,3 +1,6 @@
+use crate::types::Args;
+use hmcdk::error;
+use hmcdk::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe, UnwindSafe};
@@ -32,7 +35,7 @@ extern "C" {
     fn __pop_contract_state() -> i32;
 }
 
-pub type Result<T> = std::result::Result<T, String>;
+pub type Result<T> = std::result::Result<T, error::Error>;
 
 thread_local!(static PID: RefCell<i32> = RefCell::new(-1));
 
@@ -40,7 +43,7 @@ thread_local!(static PID: RefCell<i32> = RefCell::new(-1));
 fn get_mutex() -> Result<()> {
     unsafe {
         match __get_mutex(get_pid()) {
-            ret if ret < 0 => Err(format!("__get_mutex: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__get_mutex: error({})", ret))),
             _ => Ok(()),
         }
     }
@@ -50,7 +53,7 @@ fn get_mutex() -> Result<()> {
 fn release_mutex() -> Result<()> {
     unsafe {
         match __release_mutex() {
-            ret if ret < 0 => Err(format!("__release_mutex: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__release_mutex: error({})", ret))),
             _ => Ok(()),
         }
     }
@@ -64,11 +67,11 @@ fn get_pid() -> i32 {
 pub fn init_process() -> Result<i32> {
     match get_pid() {
         -1 => {}
-        _ => return Err("process already exists".to_string()),
+        _ => return Err(error::from_str("process already exists".to_string())),
     }
     unsafe {
         match __init_process() {
-            ret if ret < 0 => Err(format!("__init_process: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__init_process: error({})", ret))),
             pid => {
                 PID.with(|p| {
                     *p.borrow_mut() = pid;
@@ -82,7 +85,10 @@ pub fn init_process() -> Result<i32> {
 pub fn init_contract_address(addr: &[u8]) -> Result<()> {
     unsafe {
         match __init_contract_address(addr.as_ptr(), addr.len()) {
-            ret if ret < 0 => Err(format!("__init_contract_address: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!(
+                "__init_contract_address: error({})",
+                ret
+            ))),
             _ => Ok(()),
         }
     }
@@ -91,18 +97,16 @@ pub fn init_contract_address(addr: &[u8]) -> Result<()> {
 pub fn init_sender(addr: &[u8]) -> Result<()> {
     unsafe {
         match __init_sender(addr.as_ptr(), addr.len()) {
-            ret if ret < 0 => Err(format!("__init_sender: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__init_sender: error({})", ret))),
             _ => Ok(()),
         }
     }
 }
 
-pub fn init_push_arg<T: Into<String>>(s: T) -> Result<()> {
-    let ss = s.into();
-    let b = ss.as_bytes();
+pub fn init_push_arg(b: &[u8]) -> Result<()> {
     unsafe {
         match __init_push_arg(b.as_ptr(), b.len()) {
-            ret if ret < 0 => Err(format!("__init_push_arg: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__init_push_arg: error({})", ret))),
             _ => Ok(()),
         }
     }
@@ -111,7 +115,7 @@ pub fn init_push_arg<T: Into<String>>(s: T) -> Result<()> {
 pub fn init_done() -> Result<()> {
     unsafe {
         match __init_done() {
-            ret if ret < 0 => Err(format!("__init_done: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__init_done: error({})", ret))),
             _ => Ok(()),
         }
     }
@@ -120,7 +124,7 @@ pub fn init_done() -> Result<()> {
 pub fn clear() -> Result<()> {
     unsafe {
         match __clear() {
-            ret if ret < 0 => Err(format!("__clear: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__clear: error({})", ret))),
             _ => Ok(()),
         }
     }
@@ -129,7 +133,7 @@ pub fn clear() -> Result<()> {
 pub fn commit_state() -> Result<()> {
     unsafe {
         match __commit_state() {
-            ret if ret < 0 => Err(format!("__commit_state: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!("__commit_state: error({})", ret))),
             _ => Ok(()),
         }
     }
@@ -137,13 +141,17 @@ pub fn commit_state() -> Result<()> {
 
 const BUF_SIZE: usize = 128;
 
-pub fn get_return_value() -> Result<Vec<u8>> {
+pub fn get_return_value<T: FromBytes>() -> Result<T> {
     let mut buf = [0u8; BUF_SIZE];
     let mut offset = 0;
     let mut val: Vec<u8> = Vec::new();
     loop {
         match unsafe { __get_return_value(offset, buf.as_mut_ptr(), buf.len()) } {
-            -1 => return Err("__get_return_value: key not found".to_string()),
+            -1 => {
+                return Err(error::from_str(
+                    "__get_return_value: key not found".to_string(),
+                ))
+            }
             0 => break,
             n => {
                 val.extend_from_slice(&buf[0..n as usize]);
@@ -154,7 +162,7 @@ pub fn get_return_value() -> Result<Vec<u8>> {
             }
         }
     }
-    Ok(val)
+    Ok(T::from_bytes(val)?)
 }
 
 pub fn get_event(name: &str, idx: usize) -> Result<Vec<u8>> {
@@ -172,7 +180,7 @@ pub fn get_event(name: &str, idx: usize) -> Result<Vec<u8>> {
                 buf.len(),
             )
         } {
-            -1 => return Err("get_event: event not found".to_string()),
+            -1 => return Err(error::from_str("get_event: event not found".to_string())),
             0 => break,
             n => {
                 val.extend_from_slice(&buf[0..n as usize]);
@@ -189,7 +197,10 @@ pub fn get_event(name: &str, idx: usize) -> Result<Vec<u8>> {
 pub fn destroy_process() -> Result<()> {
     unsafe {
         match __destroy_process() {
-            ret if ret < 0 => Err(format!("__destroy_process: error({})", ret)),
+            ret if ret < 0 => Err(error::from_str(format!(
+                "__destroy_process: error({})",
+                ret
+            ))),
             _ => PID.with(|p| {
                 *p.borrow_mut() = -1;
                 Ok(())
@@ -202,34 +213,30 @@ pub fn exec_process<T, F: FnOnce() -> Result<T>>(cb: F) -> Result<T>
 where
     F: UnwindSafe,
 {
-    exec_process_with_arguments(Vec::<String>::new(), cb)
+    exec_process_with_arguments(Args::new(), cb)
 }
 
-pub fn exec_process_with_arguments<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
-    args: Vec<T2>,
-    cb: F,
-) -> Result<T1>
-where
-    T2: UnwindSafe,
-    F: UnwindSafe,
-{
-    exec_process_with_sender_and_arguments(&[], args, cb)
-}
-
-pub fn exec_process_with_sender<T, F: FnOnce() -> Result<T>>(sender: &[u8], cb: F) -> Result<T>
+pub fn exec_process_with_arguments<T, F: FnOnce() -> Result<T>>(args: Args, cb: F) -> Result<T>
 where
     F: UnwindSafe,
 {
-    exec_process_with_sender_and_arguments(sender, Vec::<String>::new(), cb)
+    let addr: Address = Default::default();
+    exec_process_with_sender_and_arguments(&addr, args, cb)
 }
 
-pub fn exec_process_with_sender_and_arguments<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
-    sender: &[u8],
-    args: Vec<T2>,
-    cb: F,
-) -> Result<T1>
+pub fn exec_process_with_sender<T, F: FnOnce() -> Result<T>>(sender: &Address, cb: F) -> Result<T>
 where
-    T2: UnwindSafe,
+    F: UnwindSafe,
+{
+    exec_process_with_sender_and_arguments(sender, Args::new(), cb)
+}
+
+pub fn exec_process_with_sender_and_arguments<T, F: FnOnce() -> Result<T>>(
+    sender: &Address,
+    args: Args,
+    cb: F,
+) -> Result<T>
+where
     F: UnwindSafe,
 {
     run_process(|| call_contract(sender, args, cb))
@@ -240,7 +247,7 @@ where
     F: UnwindSafe,
 {
     get_mutex()?;
-    let mut res: Result<T> = Err(String::new());
+    let mut res: Result<T> = Err(error::from_str(""));
     let result = {
         let mut resref = AssertUnwindSafe(&mut res);
         catch_unwind(move || {
@@ -260,7 +267,7 @@ where
     F: UnwindSafe,
 {
     if get_pid() >= 0 {
-        Err("process already exists".to_string())
+        Err(error::from_str("process already exists".to_string()))
     } else {
         exec_function(|| {
             init_process()?;
@@ -271,15 +278,14 @@ where
     }
 }
 
-pub fn call_contract<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
-    sender: &[u8],
-    args: Vec<T2>,
+pub fn call_contract<T, F: FnOnce() -> Result<T>>(
+    sender: &Address,
+    args: Vec<Vec<u8>>,
     cb: F,
-) -> Result<T1> {
+) -> Result<T> {
     init_sender(sender)?;
     for arg in args.into_iter() {
-        let s = arg.into();
-        init_push_arg(s.as_str())?;
+        init_push_arg(&arg)?;
     }
     let res = match cb() {
         Ok(v) => {
@@ -290,18 +296,6 @@ pub fn call_contract<T1, T2: Into<String>, F: FnOnce() -> Result<T1>>(
     };
     clear()?;
     res
-}
-
-type Address = [u8; 20];
-type ContractFn = fn() -> i32;
-
-thread_local!(static VALUE_TABLE: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new()));
-thread_local!(static FUNC_TABLE: RefCell<HashMap<(Address, String), ContractFn >> = RefCell::new(HashMap::new()));
-
-pub fn register_contract_function(addr: Address, name: String, f: ContractFn) {
-    FUNC_TABLE.with(|t| {
-        t.borrow_mut().insert((addr, name), f);
-    });
 }
 
 #[no_mangle]
@@ -329,6 +323,11 @@ pub fn __read(id: usize, offset: usize, value_buf_ptr: *mut u8, value_buf_len: u
     })
 }
 
+pub type ContractFn = fn() -> i32;
+
+thread_local!(static VALUE_TABLE: RefCell<Vec<Vec<u8>>> = RefCell::new(Vec::new()));
+thread_local!(static FUNC_TABLE: RefCell<HashMap<(Address, String), ContractFn >> = RefCell::new(HashMap::new()));
+
 pub fn __write(v: Vec<u8>) -> usize {
     VALUE_TABLE.with(|t| {
         let mut vv = t.borrow_mut();
@@ -350,9 +349,9 @@ pub fn __call_contract(
     let mut e_ptr = entry_ptr;
 
     let mut addr: Address = Default::default();
-    for i in 0..addr_size {
+    for a in addr.iter_mut().take(addr_size) {
         unsafe {
-            addr[i] = *a_ptr;
+            *a = *a_ptr;
         }
         a_ptr = a_ptr.wrapping_add(1);
     }
@@ -377,7 +376,7 @@ pub fn __call_contract(
             }
             match f() {
                 c if c >= 0 => {
-                    let res = get_return_value().unwrap();
+                    let res: Vec<u8> = get_return_value().unwrap();
                     let id = __write(res) as i32;
                     unsafe {
                         if __pop_contract_state() != 0 {
@@ -402,18 +401,26 @@ pub fn __call_contract(
     })
 }
 
+pub fn register_contract_function(addr: Address, name: String, f: ContractFn) {
+    FUNC_TABLE.with(|t| {
+        t.borrow_mut().insert((addr, name), f);
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::ArgsBuilder;
+    use hmcdk::api;
 
     #[test]
     fn initialize_test() {
         exec_function(|| {
             init_process().unwrap();
-            init_push_arg("key1").unwrap();
+            init_push_arg("key1".as_bytes()).unwrap();
             init_done().unwrap();
 
-            init_push_arg("key2").expect_err("expect error");
+            init_push_arg("key2".as_bytes()).expect_err("expect error");
             destroy_process().unwrap();
             Ok(())
         })
@@ -422,11 +429,13 @@ mod tests {
 
     #[test]
     fn process_test() {
-        for i in 0..10 {
-            let args = vec!["1".to_string(), i.to_string()];
-            exec_process_with_arguments(args, || {
-                let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
-                let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
+        for i in 0..10i64 {
+            let mut args = ArgsBuilder::new();
+            args.push(1i64);
+            args.push(i);
+            exec_process_with_arguments(args.convert_to_vec(), || {
+                let x: i64 = api::get_arg(0)?;
+                let y: i64 = api::get_arg(1)?;
                 assert_eq!(1 + i, x + y);
                 Ok(())
             })
@@ -438,20 +447,22 @@ mod tests {
     fn sender_test() {
         let sender = b"d11234567890ABCDEFFF";
         exec_process_with_sender(sender, || {
-            let s = hmc::get_sender().unwrap();
+            let s = api::get_sender()?;
             assert_eq!(&s, sender);
             Ok(())
         })
         .unwrap();
 
-        for i in 0..10 {
-            let args = vec!["1".to_string(), i.to_string()];
-            exec_process_with_sender_and_arguments(sender, args, || {
-                let s = hmc::get_sender().unwrap();
+        for i in 0..10i64 {
+            let mut args = ArgsBuilder::new();
+            args.push(1i64);
+            args.push(i);
+            exec_process_with_sender_and_arguments(sender, args.convert_to_vec(), || {
+                let s = api::get_sender()?;
                 assert_eq!(&s, sender);
 
-                let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
-                let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
+                let x: i64 = api::get_arg(0)?;
+                let y: i64 = api::get_arg(1)?;
                 assert_eq!(1 + i, x + y);
 
                 Ok(())
@@ -467,17 +478,16 @@ mod tests {
         const CONTRACT_B: Address = *b"00000000000000000011";
 
         fn func_b() -> i32 {
-            hmc::return_value(&hmc::get_contract_address().unwrap())
+            api::return_value(&api::get_contract_address().unwrap())
         }
 
         run_process(|| {
             init_contract_address(&CONTRACT_A)?;
             register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
-
-            call_contract(sender1, Vec::<String>::new(), || {
-                let addr = hmc::get_contract_address()?;
+            call_contract(sender1, ArgsBuilder::new().convert_to_vec(), || {
+                let addr = api::get_contract_address()?;
                 assert_eq!(CONTRACT_A, addr);
-                let res = hmc::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![])?;
+                let res: Vec<u8> = api::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![])?;
                 assert_eq!(CONTRACT_B.to_vec(), res);
                 Ok(0)
             })
@@ -491,8 +501,8 @@ mod tests {
             let key = "key".as_bytes();
             let value = "value".as_bytes();
 
-            hmc::write_state(key, value);
-            hmc::read_state(key).expect_err("expect error");
+            api::write_state(key, value);
+            api::read_state::<String>(key).expect_err("expect error");
 
             Ok(())
         })
@@ -504,7 +514,7 @@ mod tests {
         let pid1 = exec_function(|| {
             let pid = init_process().unwrap();
             assert_eq!(pid, get_pid());
-            init_push_arg("key1").unwrap();
+            init_push_arg("key1".as_bytes()).unwrap();
             Ok(pid)
         })
         .unwrap();
@@ -513,9 +523,9 @@ mod tests {
                 let pid = init_process().unwrap();
                 assert_eq!(pid, get_pid());
                 assert_ne!(pid, pid1);
-                init_push_arg("key2").unwrap();
+                init_push_arg("key2".as_bytes()).unwrap();
                 init_done().unwrap();
-                assert_eq!("key2", hmc::get_arg_str(0).unwrap().as_str());
+                assert_eq!("key2", api::get_arg::<String>(0)?.as_str());
                 Ok(())
             })
             .unwrap();
@@ -523,7 +533,7 @@ mod tests {
         th.join().unwrap();
         exec_function(|| {
             assert_eq!(pid1, get_pid());
-            assert_eq!("key1", hmc::get_arg_str(0).unwrap().as_str());
+            assert_eq!("key1", api::get_arg::<String>(0)?.as_str());
             Ok(())
         })
         .unwrap();
@@ -550,30 +560,37 @@ mod tests {
         let value = "value".as_bytes();
         run_process(|| {
             {
-                let args = vec!["1", "2", "3"];
+                let mut args_ = ArgsBuilder::new();
+                args_.push(1i32);
+                args_.push(2i32);
+                args_.push(3i32);
+                let args = args_.convert_to_vec();
                 call_contract(sender1, args.clone(), || {
-                    let sender = hmc::get_sender().unwrap();
+                    let sender = api::get_sender().unwrap();
                     assert_eq!(sender1, &sender);
                     for i in 0..args.len() {
-                        let arg = hmc::get_arg_str(i)?;
-                        assert_eq!(args[i], arg);
+                        let arg: i32 = api::get_arg(i)?;
+                        assert_eq!(args[i], arg.to_bytes());
                     }
-                    hmc::write_state(key, value);
+                    api::write_state(key, value);
                     Ok(0)
                 })?;
             }
 
             {
-                let args = vec!["4", "5"];
+                let mut args_ = ArgsBuilder::new();
+                args_.push(4i32);
+                args_.push(5i32);
+                let args = args_.convert_to_vec();
                 call_contract(sender2, args.clone(), || {
-                    let sender = hmc::get_sender().unwrap();
+                    let sender = api::get_sender().unwrap();
                     assert_eq!(sender2, &sender);
                     for i in 0..args.len() {
-                        let arg = hmc::get_arg_str(i)?;
-                        assert_eq!(args[i], arg);
+                        let arg: i32 = api::get_arg(i)?;
+                        assert_eq!(args[i], arg.to_bytes());
                     }
-                    let v = hmc::read_state(key)?;
-                    assert_eq!(value, (&v as &[u8]));
+                    let v: Vec<u8> = api::read_state(key)?;
+                    assert_eq!(value, &v as &[u8]);
                     Ok(0)
                 })
             }
@@ -588,16 +605,16 @@ mod tests {
 
         // simple test
         run_process(|| {
-            hmc::write_state(key, value);
+            api::write_state(key, value);
             Ok(0)
         })
         .unwrap();
 
         // nested runners
         run_process(|| {
-            hmc::write_state(key, value);
+            api::write_state(key, value);
             assert!(run_process(|| {
-                hmc::write_state(key, value);
+                api::write_state(key, value);
                 Ok(0)
             })
             .is_err());
@@ -616,31 +633,27 @@ mod tests {
         // 1. call external contract simply, and ensure returned value matches expected
         {
             fn func_a() -> i32 {
-                let external_contract = hmc::get_arg(0).unwrap();
-                let res =
-                    hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
-                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+                let external_contract: Address = api::get_arg(0).unwrap();
+                let res: Vec<u8> =
+                    api::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
+                api::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
             }
             fn func_b() -> i32 {
-                hmc::return_value("ok".as_bytes())
+                api::return_value("ok".as_bytes())
             }
 
             run_process(|| {
                 init_contract_address(&CONTRACT_A)?;
                 register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
 
-                call_contract(
-                    &SENDER,
-                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
-                    || {
-                        let s = hmc::get_sender().unwrap();
-                        assert_eq!(SENDER, s);
-                        func_a();
-                        Ok(0)
-                    },
-                )?;
+                call_contract(&SENDER, vec![CONTRACT_B.to_bytes()], || {
+                    let s = api::get_sender()?;
+                    assert_eq!(SENDER, s);
+                    func_a();
+                    Ok(0)
+                })?;
 
-                let ret = get_return_value()?;
+                let ret: Vec<u8> = get_return_value()?;
                 assert_eq!("got ok".to_string().into_bytes(), ret);
 
                 Ok(())
@@ -651,40 +664,40 @@ mod tests {
         // 2. call external contract with arguments
         {
             fn func_a() -> i32 {
-                let external_contract = hmc::get_arg(0).unwrap();
-                let x = hmc::get_arg(1).unwrap();
-                let y = hmc::get_arg(2).unwrap();
-                let res =
-                    hmc::call_contract(&external_contract, "func_add".as_bytes(), vec![&x, &y])
-                        .unwrap();
-                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+                let external_contract: Address = api::get_arg(0).unwrap();
+                let x: i64 = api::get_arg(1).unwrap();
+                let y: i64 = api::get_arg(2).unwrap();
+                let res: i64 = api::call_contract(
+                    &external_contract,
+                    "func_add".as_bytes(),
+                    vec![&x.to_bytes(), &y.to_bytes()],
+                )
+                .unwrap();
+                api::return_value(format!("got {}", res).as_bytes())
             }
             fn func_add() -> i32 {
-                let x = hmc::get_arg_str(0).unwrap().parse::<i64>().unwrap();
-                let y = hmc::get_arg_str(1).unwrap().parse::<i64>().unwrap();
-                hmc::return_value(format!("{}", x + y).as_bytes())
+                let x: i64 = api::get_arg(0).unwrap();
+                let y: i64 = api::get_arg(1).unwrap();
+                api::return_value(&(x + y).to_bytes())
             }
 
             run_process(|| {
                 init_contract_address(&CONTRACT_A)?;
                 register_contract_function(CONTRACT_B, "func_add".to_string(), func_add);
+                let mut args_ = ArgsBuilder::new();
+                args_.push(CONTRACT_B);
+                args_.push(100i64);
+                args_.push(200i64);
+                let args = args_.convert_to_vec();
 
-                call_contract(
-                    &SENDER,
-                    vec![
-                        String::from_utf8(CONTRACT_B.to_vec()).unwrap().as_str(),
-                        "100",
-                        "200",
-                    ],
-                    || {
-                        let s = hmc::get_sender().unwrap();
-                        assert_eq!(SENDER, s);
-                        func_a();
-                        Ok(0)
-                    },
-                )?;
+                call_contract(&SENDER, args, || {
+                    let s = api::get_sender().unwrap();
+                    assert_eq!(SENDER, s);
+                    func_a();
+                    Ok(0)
+                })?;
 
-                let ret = get_return_value()?;
+                let ret: Vec<u8> = get_return_value()?;
                 assert_eq!("got 300".to_string().into_bytes(), ret);
 
                 Ok(())
@@ -695,22 +708,23 @@ mod tests {
         // 3. ensure caller address of external contract matches each contract address or sender
         {
             fn func_a() -> i32 {
-                let external_contract = hmc::get_arg(0).unwrap();
-                assert_eq!(SENDER, hmc::get_sender().unwrap());
-                let res =
-                    hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
-                assert_eq!(SENDER, hmc::get_sender().unwrap());
-                hmc::return_value(&res)
+                let external_contract: Address = api::get_arg(0).unwrap();
+                assert_eq!(SENDER, api::get_sender().unwrap());
+                let res: Vec<u8> =
+                    api::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
+                assert_eq!(SENDER, api::get_sender().unwrap());
+                api::return_value(&res)
             }
             fn func_b() -> i32 {
-                assert_eq!(CONTRACT_A, hmc::get_sender().unwrap());
-                let res = hmc::call_contract(&CONTRACT_C, "func_c".as_bytes(), vec![]).unwrap();
-                assert_eq!(CONTRACT_A, hmc::get_sender().unwrap());
-                hmc::return_value(&res)
+                assert_eq!(CONTRACT_A, api::get_sender().unwrap());
+                let res: Vec<u8> =
+                    api::call_contract(&CONTRACT_C, "func_c".as_bytes(), vec![]).unwrap();
+                assert_eq!(CONTRACT_A, api::get_sender().unwrap());
+                api::return_value(&res)
             }
             fn func_c() -> i32 {
-                assert_eq!(CONTRACT_B, hmc::get_sender().unwrap());
-                hmc::return_value(&hmc::get_sender().unwrap())
+                assert_eq!(CONTRACT_B, api::get_sender().unwrap());
+                api::return_value(&api::get_sender().unwrap())
             }
 
             run_process(|| {
@@ -718,18 +732,18 @@ mod tests {
                 register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
                 register_contract_function(CONTRACT_C, "func_c".to_string(), func_c);
 
-                call_contract(
-                    &SENDER,
-                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
-                    || {
-                        let s = hmc::get_sender().unwrap();
-                        assert_eq!(SENDER, s);
-                        func_a();
-                        Ok(0)
-                    },
-                )?;
+                let mut args_ = ArgsBuilder::new();
+                args_.push(CONTRACT_B);
+                let args = args_.convert_to_vec();
 
-                let ret = get_return_value()?;
+                call_contract(&SENDER, args, || {
+                    let s = api::get_sender().unwrap();
+                    assert_eq!(SENDER, s);
+                    func_a();
+                    Ok(0)
+                })?;
+
+                let ret: Vec<u8> = get_return_value()?;
                 assert_eq!(ret, CONTRACT_B);
 
                 Ok(())
@@ -743,29 +757,30 @@ mod tests {
                 let key = "key_a".as_bytes();
                 let value = "value_a".as_bytes();
 
-                let external_contract = hmc::get_arg(0).unwrap();
-                hmc::write_state(key, value);
-                let res =
-                    hmc::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
-                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+                let external_contract: Address = api::get_arg(0).unwrap();
+                api::write_state(key, value);
+                let res: String =
+                    api::call_contract(&external_contract, "func_b".as_bytes(), vec![]).unwrap();
+                api::return_value(format!("got {}", res).as_bytes())
             }
             fn func_b() -> i32 {
                 let key = "key_b".as_bytes();
                 let value = "value_b".as_bytes();
 
-                let res = hmc::call_contract(&CONTRACT_C, "func_c".as_bytes(), vec![]).unwrap();
-                hmc::write_state(key, value);
-                hmc::return_value(format!("got {}", String::from_utf8(res).unwrap()).as_bytes())
+                let res: String =
+                    api::call_contract(&CONTRACT_C, "func_c".as_bytes(), vec![]).unwrap();
+                api::write_state(key, value);
+                api::return_value(format!("got {}", res).as_bytes())
             }
             fn func_c() -> i32 {
                 let key = "key_c".as_bytes();
                 let value = "value_c".as_bytes();
 
-                match hmc::read_state(key) {
-                    Ok(_) => hmc::return_value("exists".as_bytes()),
+                match api::read_state::<Vec<u8>>(key) {
+                    Ok(_) => api::return_value("exists".as_bytes()),
                     Err(_) => {
-                        hmc::write_state(key, value);
-                        hmc::return_value("ok".as_bytes())
+                        api::write_state(key, value);
+                        api::return_value("ok".as_bytes())
                     }
                 }
             }
@@ -775,41 +790,49 @@ mod tests {
                 register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
                 register_contract_function(CONTRACT_C, "func_c".to_string(), func_c);
 
-                call_contract(
-                    &SENDER,
-                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
-                    || {
-                        func_a();
-                        Ok(0)
-                    },
-                )?;
+                let mut args_ = ArgsBuilder::new();
+                args_.push(CONTRACT_B);
+                let args = args_.convert_to_vec();
 
-                assert_eq!("got got ok".to_string().into_bytes(), get_return_value()?);
+                call_contract(&SENDER, args.clone(), || {
+                    func_a();
+                    Ok(0)
+                })?;
+
+                assert_eq!(
+                    "got got ok".to_string().into_bytes(),
+                    get_return_value::<Vec<u8>>()?
+                );
                 commit_state()?;
 
-                assert_eq!("value_a", hmc::read_state_str("key_a".as_bytes()).unwrap());
-                assert!(hmc::read_state_str("key_b".as_bytes()).is_err());
+                assert_eq!(
+                    "value_a",
+                    api::read_state::<String>("key_a".as_bytes()).unwrap()
+                );
+                assert!(api::read_state::<String>("key_b".as_bytes()).is_err());
 
                 init_contract_address(&CONTRACT_B)?;
-                assert_eq!("value_b", hmc::read_state_str("key_b".as_bytes()).unwrap());
-                assert!(hmc::read_state_str("key_c".as_bytes()).is_err());
+                assert_eq!(
+                    "value_b",
+                    api::read_state::<String>("key_b".as_bytes()).unwrap()
+                );
+                assert!(api::read_state::<String>("key_c".as_bytes()).is_err());
 
                 init_contract_address(&CONTRACT_C)?;
-                assert_eq!("value_c", hmc::read_state_str("key_c".as_bytes()).unwrap());
+                assert_eq!(
+                    "value_c",
+                    api::read_state::<String>("key_c".as_bytes()).unwrap()
+                );
 
                 // check if next tx execution can see a committed state
                 init_contract_address(&CONTRACT_A)?;
-                call_contract(
-                    &SENDER,
-                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
-                    || {
-                        func_a();
-                        Ok(0)
-                    },
-                )?;
+                call_contract(&SENDER, args.clone(), || {
+                    func_a();
+                    Ok(0)
+                })?;
                 assert_eq!(
                     "got got exists".to_string().into_bytes(),
-                    get_return_value()?
+                    get_return_value::<Vec<u8>>()?
                 );
 
                 Ok(())
@@ -821,27 +844,28 @@ mod tests {
         {
             const RET_SIZE: usize = BUF_SIZE + 1;
             fn func_a() -> i32 {
-                let res = hmc::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![]).unwrap();
-                hmc::return_value(&res)
+                let res: Vec<u8> =
+                    api::call_contract(&CONTRACT_B, "func_b".as_bytes(), vec![]).unwrap();
+                api::return_value(&res)
             }
             fn func_b() -> i32 {
                 let value = [0u8; RET_SIZE];
-                hmc::return_value(&value)
+                api::return_value(&value)
             }
 
             run_process(|| {
                 init_contract_address(&CONTRACT_A)?;
                 register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
 
-                call_contract(
-                    &SENDER,
-                    vec![String::from_utf8(CONTRACT_B.to_vec()).unwrap()],
-                    || {
-                        func_a();
-                        Ok(0)
-                    },
-                )?;
-                assert_eq!(RET_SIZE, get_return_value()?.len());
+                let mut args_ = ArgsBuilder::new();
+                args_.push(CONTRACT_B);
+                let args = args_.convert_to_vec();
+
+                call_contract(&SENDER, args, || {
+                    func_a();
+                    Ok(0)
+                })?;
+                assert_eq!(RET_SIZE, get_return_value::<Vec<u8>>()?.len());
 
                 Ok(())
             })

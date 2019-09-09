@@ -4,7 +4,7 @@ jobs:
   test:
     working_directory: /go/src/github.com/bluele/hmemu
     docker:
-      - image: bluele/go-rust:0.1.0
+      - image: hypermint/go-rust:v0.2.0
     environment:
       GO111MODULE: "on"
     steps:
@@ -13,6 +13,14 @@ jobs:
           name: "build lib"
           command: |
             make build
+      - run:
+          name: "setup lint tools"
+          command: |
+            make lint-tools
+      - run:
+          name: "lint"
+          command: |
+            make lint
       - run:
           name: "build"
           command: |

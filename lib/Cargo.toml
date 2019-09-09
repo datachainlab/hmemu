@@ -1,0 +1,14 @@
+[package]
+name = "hmemu"
+version = "0.1.0"
+authors = ["Jun Kimura <junkxdev@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+hmcdk = { git = "https://github.com/bluele/hypermint", tag = "v0.4.2" }
+core = { path = "../core" }
+hmemu_codegen = { path = "../codegen" }
+
+[lib]
+name = "hmemu"
+crate-type = ["cdylib", "lib"]
