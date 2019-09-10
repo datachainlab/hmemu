@@ -1,14 +1,15 @@
 [package]
 name = "first"
 version = "0.1.0"
+workspace = "../../"
 authors = ["Jun Kimura <junkxdev@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-hmc = { git = "https://github.com/bluele/hypermint", tag = "v0.3.0" }
-
-[dev-dependencies]
-hmemu = { path = "../.." }
+hmcdk = { git = "https://github.com/bluele/hypermint", tag = "v0.4.2" }
+hmemu = { path = "../../lib" }
+hmemu_codegen = { version = "0.1.0", path = "../../codegen" }
 
 [lib]
-crate-type = ["cdylib"]
+# WARNING: If you want to compile this contract to wasm module, change this value to ["cdylib", "lib"]
+crate-type = ["staticlib", "lib"]
