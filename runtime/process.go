@@ -11,6 +11,7 @@ import (
 	"github.com/bluele/hypermint/pkg/abci/store"
 	sdk "github.com/bluele/hypermint/pkg/abci/types"
 	"github.com/bluele/hypermint/pkg/contract"
+	"github.com/bluele/hypermint/pkg/contract/event"
 	"github.com/bluele/hypermint/pkg/db"
 	"github.com/bluele/hypermint/pkg/logger"
 	"github.com/ethereum/go-ethereum/common"
@@ -83,10 +84,10 @@ type Process struct {
 	sender common.Address
 	args   contract.Args
 	res    []byte
-	events []*contract.Event
 
 	stateStack *list.List
 	sets db.RWSets
+	entries []*event.Entry
 }
 
 func NewProcess() (*Process, error) {
@@ -152,8 +153,8 @@ func (p *Process) Logger() logger.Logger {
 	return defaultLogger
 }
 
-func (p *Process) EmitEvent(ev *contract.Event) {
-	p.events = append(p.events, ev)
+func (p *Process) EmitEvent(e *event.Entry) {
+	p.entries = append(p.entries, e)
 }
 
 // TODO this method should be moved into NewProcess?
@@ -209,8 +210,7 @@ func (p *Process) CommitState() error {
 		Items:   p.db.RWSetItems(),
 	}
 	sets = append(sets, set)
-	db.CommitState(p.kvs, sets, db.Version{1, 1})
-	return nil
+	return db.CommitState(p.kvs, sets, db.Version{1, 1}, db.NewKeyMaps())
 }
 
 type value struct {

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/bluele/hypermint/pkg/contract"
+	"github.com/bluele/hypermint/pkg/contract/event"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -155,16 +156,16 @@ func __get_event(namePtr uintptr, nameLen C.int, idx C.int, offset C.int, bufPtr
 		log.Println(err)
 		return -1
 	}
-	evm := make(map[string][]*contract.Event)
-	for _, ev := range ps.events {
-		evm[string(ev.Name)] = append(evm[string(ev.Name)], ev)
+	em := make(map[string][]*event.Entry)
+	for _, e := range ps.entries {
+		em[string(e.Name)] = append(em[string(e.Name)], e)
 	}
 	name := string(NewReader(namePtr, int(nameLen)).Read())
-	evs := evm[name]
-	if len(evs) <= int(idx) {
+	es := em[name]
+	if len(es) <= int(idx) {
 		return -1
 	}
-	return contract.WriteBuf(ps, NewWriter(bufPtr, int(bufLen)), int(offset), evs[int(idx)].Value)
+	return contract.WriteBuf(ps, NewWriter(bufPtr, int(bufLen)), int(offset), es[int(idx)].Value)
 }
 
 //export __get_sender
