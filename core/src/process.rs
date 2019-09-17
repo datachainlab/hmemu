@@ -409,12 +409,8 @@ pub fn register_contract_function(addr: Address, name: String, f: ContractFn) {
 }
 
 pub fn set_debug(b: bool) {
-    let flag: u8 = match b {
-        true => 1,
-        false => 0,
-    };
     unsafe {
-        if __set_debug(flag) != 0 {
+        if __set_debug(if b { 1 } else { 0 }) != 0 {
             panic!("failed to call __set_debug");
         }
     }
