@@ -77,6 +77,7 @@ var _ contract.Process = (*Process)(nil)
 
 type Process struct {
 	initialized bool
+	debug bool
 	kvs sdk.KVStore
 	db          *db.VersionedDB
 
@@ -210,7 +211,34 @@ func (p *Process) CommitState() error {
 		Items:   p.db.RWSetItems(),
 	}
 	sets = append(sets, set)
+	if p.debug {
+		printRWSets(sets)
+	}
+	p.sets = nil
 	return db.CommitState(p.kvs, sets, db.Version{1, 1}, db.NewKeyMaps())
+}
+
+func (p *Process) SetDebug(flag uint8) {
+	if flag == 0 {
+		p.debug = false
+	} else if flag == 1 {
+		p.debug = true
+	} else {
+		panic("unknown flag")
+	}
+}
+
+func printRWSets(sets []*db.RWSet) {
+	for i, s := range sets {
+		fmt.Printf("#%v Address=%v\n", i, s.Address.Hex())
+		for _, r := range s.Items.ReadSet {
+			fmt.Printf("Read key=%v\n", string(r.Key))
+		}
+		for _, w := range s.Items.WriteSet {
+			fmt.Printf("Write key=%v value=%v\n", string(w.Key), string(w.Value))
+		}
+		fmt.Println("==============================")
+	}
 }
 
 type value struct {

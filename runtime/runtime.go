@@ -344,4 +344,16 @@ func __pop_contract_state() int {
 	return 0
 }
 
+//export __set_debug
+func __set_debug(flag C.uint) int {
+	ps, err := processManager.CurrentProcess()
+	if err != nil {
+		log.Println(err)
+		return -1
+	}
+	ps.SetDebug(uint8(flag))
+	return 0
+}
+
+
 func main() {}

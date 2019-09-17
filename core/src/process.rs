@@ -33,6 +33,7 @@ extern "C" {
 
     fn __push_contract_state(addr_ptr: *const u8, addr_len: usize) -> i32;
     fn __pop_contract_state() -> i32;
+    fn __set_debug(flag: u8) -> i32;
 }
 
 pub type Result<T> = std::result::Result<T, error::Error>;
@@ -405,6 +406,18 @@ pub fn register_contract_function(addr: Address, name: String, f: ContractFn) {
     FUNC_TABLE.with(|t| {
         t.borrow_mut().insert((addr, name), f);
     });
+}
+
+pub fn set_debug(b: bool) {
+    let flag: u8 = match b {
+        true => 1,
+        false => 0,
+    };
+    unsafe {
+        if __set_debug(flag) != 0 {
+            panic!("failed to call __set_debug");
+        }
+    }
 }
 
 #[cfg(test)]
@@ -786,6 +799,7 @@ mod tests {
             }
 
             run_process(|| {
+                // set_debug(true);
                 init_contract_address(&CONTRACT_A)?;
                 register_contract_function(CONTRACT_B, "func_b".to_string(), func_b);
                 register_contract_function(CONTRACT_C, "func_c".to_string(), func_c);
@@ -803,7 +817,6 @@ mod tests {
                     "got got ok".to_string().into_bytes(),
                     get_return_value::<Vec<u8>>()?
                 );
-                commit_state()?;
 
                 assert_eq!(
                     "value_a",
