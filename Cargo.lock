@@ -78,10 +78,10 @@ dependencies = [
 [[package]]
 name = "hmcdk"
 version = "0.1.0"
-source = "git+https://github.com/bluele/hypermint?tag=v0.4.3#01f847a838727d7c6f6e19b98f130f5d221953cf"
+source = "git+https://github.com/bluele/hypermint?tag=v0.4.4#9a4b02c0b37c403c95a1fbe54ba16b2a4a675550"
 dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "hmcdk_codegen 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.3)",
+ "hmcdk_codegen 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.4)",
 ]
 
 [[package]]
@@ -96,7 +96,7 @@ dependencies = [
 [[package]]
 name = "hmcdk_codegen"
 version = "0.1.0"
-source = "git+https://github.com/bluele/hypermint?tag=v0.4.3#01f847a838727d7c6f6e19b98f130f5d221953cf"
+source = "git+https://github.com/bluele/hypermint?tag=v0.4.4#9a4b02c0b37c403c95a1fbe54ba16b2a4a675550"
 dependencies = [
  "quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.44 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -107,7 +107,7 @@ name = "hmemu"
 version = "0.1.0"
 dependencies = [
  "core 0.1.0",
- "hmcdk 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.3)",
+ "hmcdk 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.4)",
  "hmemu_codegen 0.1.0",
 ]
 
@@ -179,9 +179,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "795bd83d3abeb9220f257e597aa0080a508b27533824adf336529648f6abf7e2"
 "checksum failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "ea1063915fd7ef4309e222a5a07cf9c319fb9c7836b1f89b85458672dbb127e1"
 "checksum hmcdk 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.2)" = "<none>"
-"checksum hmcdk 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.3)" = "<none>"
+"checksum hmcdk 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.4)" = "<none>"
 "checksum hmcdk_codegen 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.2)" = "<none>"
-"checksum hmcdk_codegen 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.3)" = "<none>"
+"checksum hmcdk_codegen 0.1.0 (git+https://github.com/bluele/hypermint?tag=v0.4.4)" = "<none>"
 "checksum libc 0.2.62 (registry+https://github.com/rust-lang/crates.io-index)" = "34fcd2c08d2f832f376f4173a231990fa5aef4e99fb569867318a227ef4c06ba"
 "checksum proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)" = "cf3d2011ab5c909338f7887f4fc896d35932e29146c12c8d01da6b22a80ba759"
 "checksum quote 0.6.13 (registry+https://github.com/rust-lang/crates.io-index)" = "6ce23b6b870e8f94f81fb0a363d65d86675884b34a09043c81e5562f11c1f8e1"

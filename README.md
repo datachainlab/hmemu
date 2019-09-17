@@ -4,7 +4,7 @@
 
 An emulation library to ease contract development and testing for hypermint.
 
-This version supports hypermint **v0.4.2**.
+This version supports hypermint **v0.4.4**.
 
 ## Getting started
 
@@ -12,7 +12,7 @@ First, please append following code to Cargo.toml in your project.
 
 ```toml
 [dependencies]
-hmcdk = { git = "https://github.com/bluele/hypermint", tag = "v0.4.2" }
+hmcdk = { git = "https://github.com/bluele/hypermint", tag = "v0.4.4" }
 
 [dev-dependencies]
 hmemu = { git = "https://github.com/bluele/hmemu", branch = "develop" }
