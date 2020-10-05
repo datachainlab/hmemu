@@ -1,6 +1,6 @@
 # hmemu
 
-[![CircleCI](https://circleci.com/gh/bluele/hmemu.svg?style=svg)](https://circleci.com/gh/bluele/hmemu)
+[![CircleCI](https://circleci.com/gh/datachainlab/hmemu.svg?style=svg)](https://circleci.com/gh/datachainlab/hmemu)
 
 An emulation library to ease contract development and testing for hypermint.
 
